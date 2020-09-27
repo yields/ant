@@ -1,0 +1,6 @@
+
+User-Agent: badbot
+Crawl-Delay: 1
+
+User-Agent: *
+Disallow: /search
