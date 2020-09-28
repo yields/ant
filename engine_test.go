@@ -3,11 +3,13 @@ package ant
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -36,6 +38,19 @@ func TestEngine(t *testing.T) {
 		}
 
 		assert.Equal(expect, visitor.paths)
+	})
+
+	t.Run("run aborts when a scraper errors", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var scraper = &scraperError{n: 2, err: io.ErrUnexpectedEOF}
+		var eng = setup(t, scraper)
+		var srv = server(t, "example.com")
+		defer srv.Close()
+
+		err := eng.Run(ctx, srv.URL)
+		assert.Error(err)
+		assert.Contains(err.Error(), `unexpected EOF`)
 	})
 
 	t.Run("cancel", func(t *testing.T) {
@@ -68,6 +83,22 @@ func (v *visitor) Scrape(ctx context.Context, p *Page) ([]string, error) {
 	v.mtx.Lock()
 	v.paths = append(v.paths, p.URL.Path)
 	v.mtx.Unlock()
+	return p.URLs(), nil
+}
+
+// ScraperError returns an error after
+// N calls to scrape.
+type scraperError struct {
+	n   int
+	seq uint64
+	err error
+}
+
+// Scrape implementation.
+func (s *scraperError) Scrape(ctx context.Context, p *Page) ([]string, error) {
+	if atomic.AddUint64(&s.seq, 1) == uint64(s.n) {
+		return nil, s.err
+	}
 	return p.URLs(), nil
 }
 

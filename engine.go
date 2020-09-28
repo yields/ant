@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/url"
 	"runtime"
-	"sync"
 
 	"github.com/yields/ant/internal/norm"
 	"github.com/yields/ant/internal/robots"
@@ -68,7 +67,6 @@ type Engine struct {
 	fetcher     Fetcher
 	queue       Queue
 	matcher     Matcher
-	pending     *sync.WaitGroup
 	limiters    []Limiter
 	robots      *robots.Cache
 	concurrency int
@@ -102,7 +100,6 @@ func NewEngine(c EngineConfig) (*Engine, error) {
 		fetcher:     c.Fetcher,
 		queue:       c.Queue,
 		matcher:     c.Matcher,
-		pending:     &sync.WaitGroup{},
 		limiters:    c.Limiters,
 		robots:      robots.NewCache(1000),
 		concurrency: c.Concurrency,
@@ -116,6 +113,7 @@ func (eng *Engine) Run(ctx context.Context, urls ...string) error {
 	// Spawn workers.
 	for i := 0; i < eng.concurrency; i++ {
 		eg.Go(func() error {
+			defer eng.queue.Close()
 			return eng.run(subctx)
 		})
 	}
@@ -126,9 +124,7 @@ func (eng *Engine) Run(ctx context.Context, urls ...string) error {
 	}
 
 	// Wait until all URLs are handled.
-	eng.pending.Wait()
-
-	// Close the queue.
+	eng.queue.Wait()
 	if err := eng.queue.Close(); err != nil {
 		return err
 	}
@@ -175,7 +171,6 @@ func (eng *Engine) enqueue(ctx context.Context, urls ...string) error {
 		return err
 	}
 
-	eng.pending.Add(len(next))
 	return nil
 }
 
@@ -187,38 +182,37 @@ func (eng *Engine) run(ctx context.Context) error {
 	for {
 		url, err := eng.queue.Dequeue(ctx)
 
-		// done.
 		if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
 			return nil
 		}
 
-		// pop error.
-		if err != nil {
-			eng.pending.Done()
-			return fmt.Errorf("ant: pop - %w", err)
-		}
-
-		// Potential limits.
-		if err := eng.limit(ctx, url); err != nil {
-			eng.pending.Done()
+		if err := eng.process(ctx, url); err != nil {
 			return err
 		}
-
-		// Scrape the URL.
-		urls, err := eng.scrape(ctx, url)
-		if err != nil {
-			eng.pending.Done()
-			return err
-		}
-
-		// Enqueue URLs.
-		if err := eng.enqueue(ctx, urls...); err != nil {
-			eng.pending.Done()
-			return fmt.Errorf("ant: enqueue - %w", err)
-		}
-
-		eng.pending.Done()
 	}
+}
+
+// Process processes a single url.
+func (eng *Engine) process(ctx context.Context, url string) error {
+	defer eng.queue.Done(url)
+
+	// Potential limits.
+	if err := eng.limit(ctx, url); err != nil {
+		return err
+	}
+
+	// Scrape the URL.
+	urls, err := eng.scrape(ctx, url)
+	if err != nil {
+		return err
+	}
+
+	// Enqueue URLs.
+	if err := eng.enqueue(ctx, urls...); err != nil {
+		return fmt.Errorf("ant: enqueue - %w", err)
+	}
+
+	return nil
 }
 
 // Scrape scrapes the given URL and returns the next URLs.
