@@ -1,4 +1,32 @@
-![test](https://github.com/yields/ant/workflows/test/badge.svg)
+
+<br>
+<br>
+<br>
+
+<p align=center>
+  ant is a minimal, idiomatic crawler for Go.
+</p>
+
+<br>
+<br>
+<br>
+
+<h1 align=center>
+  <a href="https://github.com/yields/ant/workflows/test">
+    <img src="https://github.com/yields/ant/workflows/test/badge.svg" />
+  </a>
+  <a href="https://pkg.go.dev/github.com/yields/ant">
+    <img src="https://pkg.go.dev/badge/github.com/yields/ant" />
+  </a>
+  <a href="https://goreportcard.com/report/github.com/yields/ant">
+    <img src="https://goreportcard.com/badge/github.com/yields/ant" />
+  </a>
+</h1>
+
+<br>
+<br>
+<br>
+
 
 ### Synopsis
 
@@ -14,6 +42,8 @@
   fmt.Println(repo.About) // => Modern Web Crawler for Go
   ```
 
+<br>
+
 ### Features
 
   - [x] Polite, follows `robots.txt` automatically.
@@ -22,6 +52,8 @@
   - [x] Rate limits.
   - [x] URL matchers.
   - [x] Pluggable.
+
+<br>
 
 ### Status
 
