@@ -22,6 +22,17 @@ func TestScanner(t *testing.T) {
 		assert.Equal(1, len(scanner.types))
 	})
 
+	t.Run("scan non ptr", func(t *testing.T) {
+		var assert = require.New(t)
+		var scanner = NewScanner()
+		var src = parse(t, "<i>10</i>")
+		var dst int
+
+		err := scanner.Scan(dst, src, Options{})
+		assert.Error(err)
+		assert.EqualError(err, `scan: cannot scan into non ptr int`)
+	})
+
 	t.Run("scan int", func(t *testing.T) {
 		var assert = require.New(t)
 		var scanner = NewScanner()
@@ -102,6 +113,20 @@ func TestScanner(t *testing.T) {
 		assert.Equal([]string{"a", "b"}, dst)
 	})
 
+	t.Run("scan slice empty", func(t *testing.T) {
+		var assert = require.New(t)
+		var scanner = NewScanner()
+		var src = parse(t, "")
+		var dst []string
+
+		err := scanner.Scan(&dst, src, Options{
+			Selector: cascadia.MustCompile(`s`),
+		})
+
+		assert.NoError(err)
+		assert.Nil(dst)
+	})
+
 	t.Run("scan slice attr", func(t *testing.T) {
 		var assert = require.New(t)
 		var scanner = NewScanner()
@@ -117,6 +142,21 @@ func TestScanner(t *testing.T) {
 		assert.Equal([]string{"a", "b"}, dst)
 	})
 
+	t.Run("slice scan not supported", func(t *testing.T) {
+		var assert = require.New(t)
+		var scanner = NewScanner()
+		var src = parse(t, "<a href=a></a> <a href=b></a>")
+		var dst []bool
+
+		err := scanner.Scan(&dst, src, Options{
+			Selector: cascadia.MustCompile(`a`),
+			Attr:     "href",
+		})
+
+		assert.Error(err)
+		assert.EqualError(err, `scan: cannot scan into type bool`)
+	})
+
 	t.Run("scan struct", func(t *testing.T) {
 		var assert = require.New(t)
 		var scanner = NewScanner()
@@ -126,14 +166,21 @@ func TestScanner(t *testing.T) {
 				<uint>6</uint>
 				<float>1.5</float>
 				<string>foo</string>
+				<attr key=val></attr>
 			</div>
 		`)
 
 		var dst struct {
-			Int    int     `css:"int"`
-			Uint   uint    `css:"uint"`
-			Float  float32 `css:"float"`
-			String string  `css:"string"`
+			Int      int     `css:"int"`
+			Uint     uint    `css:"uint"`
+			Float    float32 `css:"float"`
+			String   string  `css:"string"`
+			Attr     string  `css:"attr@key"`
+			EmptyCSS string  `css:""`
+			Skip     string  `css:"-"`
+			NoTag    string
+
+			private string
 		}
 
 		err := scanner.Scan(&dst, src, Options{})
@@ -143,6 +190,39 @@ func TestScanner(t *testing.T) {
 		assert.Equal(uint(6), dst.Uint)
 		assert.Equal(float32(1.5), dst.Float)
 		assert.Equal("foo", dst.String)
+		assert.Equal("val", dst.Attr)
+	})
+
+	t.Run("scan struct, bad selector", func(t *testing.T) {
+		var assert = require.New(t)
+		var scanner = NewScanner()
+		var src = parse(t, ``)
+
+		type Item struct {
+			BadCSS string `css:"--"`
+		}
+
+		dst := Item{}
+		err := scanner.Scan(&dst, src, Options{})
+
+		assert.Error(err)
+		assert.EqualError(err, `scan: cannot compile selector "--" of Item.BadCSS`)
+	})
+
+	t.Run("scan struct, type not supported", func(t *testing.T) {
+		var assert = require.New(t)
+		var scanner = NewScanner()
+		var src = parse(t, ``)
+
+		type Item struct {
+			Bool bool `css:"bool"`
+		}
+
+		dst := Item{}
+		err := scanner.Scan(&dst, src, Options{})
+
+		assert.Error(err)
+		assert.EqualError(err, `scan: cannot scan into type bool`)
 	})
 
 	t.Run("scan nested struct", func(t *testing.T) {

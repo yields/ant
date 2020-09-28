@@ -23,6 +23,11 @@ type StructScanner struct {
 // Struct returns a scanfunc for a struct or an error.
 func Struct(opts Options, t reflect.Type) (ScanFunc, error) {
 	var fields []field
+	var name = t.Name()
+
+	if name == "" {
+		name = t.String()
+	}
 
 	for j := 0; j < t.NumField(); j++ {
 		var f = t.Field(j)
@@ -34,7 +39,7 @@ func Struct(opts Options, t reflect.Type) (ScanFunc, error) {
 			continue
 		}
 
-		if css = tag.Get("css"); len(css) == 0 {
+		if css = tag.Get("css"); len(css) == 0 || css == "-" {
 			continue
 		}
 
@@ -45,7 +50,11 @@ func Struct(opts Options, t reflect.Type) (ScanFunc, error) {
 
 		sel, err := cascadia.Compile(css)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan: cannot compile selector %q of %s.%s",
+				css,
+				name,
+				f.Name,
+			)
 		}
 
 		scan, err := ScannerOf(f.Type, Options{

@@ -128,7 +128,7 @@ func (c *Cache) lookup(ctx context.Context, url *url.URL) (*Site, error) {
 	rawurl := url.Scheme + "://" + url.Host + "/robots.txt"
 	req, err := http.NewRequestWithContext(ctx, "GET", rawurl, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("robots: new request - %w", err)
 	}
 
 	resp, err := http.DefaultClient.Do(req)

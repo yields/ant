@@ -2,6 +2,7 @@ package robots
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -24,6 +25,22 @@ func TestCache(t *testing.T) {
 		assert.True(allowed)
 	})
 
+	t.Run("allowed cancel", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var cache = NewCache(50)
+		var url = serve(t, "testdata/robots.txt")
+
+		ctx, cancel := context.WithCancel(ctx)
+		cancel()
+
+		req := request(t, url+"/foo", "ant")
+
+		_, err := cache.Allowed(ctx, req)
+		assert.Error(err)
+		assert.True(errors.Is(err, context.Canceled))
+	})
+
 	t.Run("disallow", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
@@ -35,6 +52,34 @@ func TestCache(t *testing.T) {
 		allowed, err := cache.Allowed(ctx, req)
 		assert.NoError(err)
 		assert.False(allowed)
+	})
+
+	t.Run("delay", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var cache = NewCache(50)
+		var url = serve(t, "testdata/robots.txt")
+
+		req := request(t, url, "badbot")
+
+		err := cache.Wait(ctx, req)
+		assert.NoError(err)
+	})
+
+	t.Run("delay cancel", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var cache = NewCache(50)
+		var url = serve(t, "testdata/robots.txt")
+
+		ctx, cancel := context.WithCancel(ctx)
+		cancel()
+
+		req := request(t, url, "badbot")
+
+		err := cache.Wait(ctx, req)
+		assert.Error(err)
+		assert.True(errors.Is(err, context.Canceled))
 	})
 }
 
