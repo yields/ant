@@ -3,13 +3,41 @@ package ant
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"time"
 )
 
-const (
-	// UserAgent is the user agent that ant sends
-	// by default.
+var (
+	// UserAgent is the user agent that ant sends  by default.
 	UserAgent = "ant/1"
+
+	// Client is the default http client to use.
+	//
+	// It is configured the same way as the `http.DefaultClient`
+	// except for 3 changes:
+	//
+	//  - MaxIdleConns => 0
+	//  - MaxIdleConnsPerHost => 1000
+	//  - Timeout => 10
+	//
+	Client = &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          0,    // was 100.
+			MaxIdleConnsPerHost:   1000, // was 2.
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+		Timeout: 10 * time.Second,
+	}
 )
 
 // HTTP implements an HTTP page fetcher.
@@ -111,5 +139,5 @@ func (h HTTP) client() *http.Client {
 	if h.Client != nil {
 		return h.Client
 	}
-	return http.DefaultClient
+	return Client
 }
