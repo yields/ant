@@ -21,5 +21,9 @@ bench:
 prof.%:
 	@go tool pprof --http :8080 ant.test $*.prof
 
+cover:
+	@go test --coverprofile test.cover ./...
+	@go tool cover --html=test.cover
+
 clean:
-	rm -fr *.test *.prof
+	rm -fr *.test *.prof *.cover
