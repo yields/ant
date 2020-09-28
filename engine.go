@@ -171,8 +171,12 @@ func (eng *Engine) enqueue(ctx context.Context, urls ...string) error {
 		return err
 	}
 
+	if err := eng.queue.Enqueue(ctx, next...); err != nil {
+		return err
+	}
+
 	eng.pending.Add(len(next))
-	return eng.queue.Enqueue(ctx, next...)
+	return nil
 }
 
 // Run runs a single crawl worker.
@@ -184,7 +188,7 @@ func (eng *Engine) run(ctx context.Context) error {
 		url, err := eng.queue.Dequeue(ctx)
 
 		// done.
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
 			return nil
 		}
 

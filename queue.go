@@ -65,6 +65,10 @@ func (mq *memoryQueue) Enqueue(ctx context.Context, urls ...string) error {
 		return io.EOF
 	}
 
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	mq.pending = append(mq.pending, urls...)
 	mq.cond.Broadcast()
 
@@ -76,8 +80,12 @@ func (mq *memoryQueue) Dequeue(ctx context.Context) (string, error) {
 	mq.cond.L.Lock()
 	defer mq.cond.L.Unlock()
 
-	for len(mq.pending) == 0 && !mq.stopped {
+	for len(mq.pending) == 0 && (!mq.stopped && ctx.Err() == nil) {
 		mq.cond.Wait()
+	}
+
+	if ctx.Err() != nil {
+		return "", ctx.Err()
 	}
 
 	if mq.stopped {
