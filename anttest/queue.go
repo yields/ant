@@ -12,10 +12,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Queue tests a Queue implementation.
+// TestQueue tests a Queue implementation.
 //
 // `new(t)` must return a new empty queue ready for use.
-func Queue(t *testing.T, new func(testing.TB) ant.Queue) {
+func TestQueue(t *testing.T, new func(testing.TB) ant.Queue) {
 	t.Run("enqueue dequeue", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
@@ -121,4 +121,24 @@ func Queue(t *testing.T, new func(testing.TB) ant.Queue) {
 		_, err := queue.Dequeue(ctx)
 		assert.Equal(context.Canceled, err)
 	})
+}
+
+// BenchmarkQueue benchmarks a queue implementation.
+func BenchmarkQueue(b *testing.B, new func(testing.TB) ant.Queue) {
+	var ctx = context.Background()
+	var url = "a"
+	var queue = new(b)
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			if err := queue.Enqueue(ctx, url); err != nil {
+				b.Fatalf("enqueue: %s", err)
+			}
+			if _, err := queue.Dequeue(ctx); err != nil {
+				b.Fatalf("dequeue: %s", err)
+			}
+		}
+	})
+
+	queue.Close()
 }
