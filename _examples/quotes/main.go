@@ -23,7 +23,7 @@ type scraper struct {
 	enc    *json.Encoder
 }
 
-func (s *scraper) Scrape(ctx context.Context, p *ant.Page) ([]string, error) {
+func (s *scraper) Scrape(ctx context.Context, p *ant.Page) (ant.URLs, error) {
 	var items struct {
 		Quotes []quote `css:".quote"`
 	}

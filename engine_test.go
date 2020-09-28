@@ -71,6 +71,22 @@ func TestEngine(t *testing.T) {
 	})
 }
 
+func BenchmarkEngine(b *testing.B) {
+	b.Run("enqueue", func(b *testing.B) {
+		var ctx = context.Background()
+		var visitor = &visitor{}
+		var eng = setup(b, visitor)
+		var srv = server(b, "example.com")
+		defer srv.Close()
+
+		b.ResetTimer()
+
+		for j := 0; j < b.N; j++ {
+			eng.Enqueue(ctx, srv.URL)
+		}
+	})
+}
+
 // Visitor implements a scraper
 // that collects all visited paths.
 type visitor struct {
@@ -79,7 +95,7 @@ type visitor struct {
 }
 
 // Scrape implementation.
-func (v *visitor) Scrape(ctx context.Context, p *Page) ([]string, error) {
+func (v *visitor) Scrape(ctx context.Context, p *Page) (URLs, error) {
 	v.mtx.Lock()
 	v.paths = append(v.paths, p.URL.Path)
 	v.mtx.Unlock()
@@ -95,7 +111,7 @@ type scraperError struct {
 }
 
 // Scrape implementation.
-func (s *scraperError) Scrape(ctx context.Context, p *Page) ([]string, error) {
+func (s *scraperError) Scrape(ctx context.Context, p *Page) (URLs, error) {
 	if atomic.AddUint64(&s.seq, 1) == uint64(s.n) {
 		return nil, s.err
 	}

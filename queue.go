@@ -18,7 +18,7 @@ type Queue interface {
 	//
 	// Any other error will be treated as a critical
 	// error and will be porpagated.
-	Enqueue(ctx context.Context, urls ...string) error
+	Enqueue(ctx context.Context, urls URLs) error
 
 	// Dequeue dequeues a URL.
 	//
@@ -27,13 +27,13 @@ type Queue interface {
 	//
 	// The method blocks until a URL is available or
 	// until the queue is closed.
-	Dequeue(ctx context.Context) (string, error)
+	Dequeue(ctx context.Context) (*URL, error)
 
 	// Done acknowledges a URL.
 	//
 	// When a URL has been handled by the engine the method
 	// is called with the URL.
-	Done(url string)
+	Done(url *URL)
 
 	// Wait blocks until the queue is closed.
 	//
@@ -50,7 +50,7 @@ type Queue interface {
 
 // MemoryQueue implements a naive in-memory queue.
 type memoryQueue struct {
-	pending []string
+	pending URLs
 	cond    *sync.Cond
 	stopped bool
 	wg      *sync.WaitGroup
@@ -59,7 +59,7 @@ type memoryQueue struct {
 // MemoryQueue returns a new memory queue.
 func MemoryQueue(size int) Queue {
 	return &memoryQueue{
-		pending: make([]string, 0, size),
+		pending: make(URLs, 0, size),
 		cond:    sync.NewCond(&sync.RWMutex{}),
 		stopped: false,
 		wg:      &sync.WaitGroup{},
@@ -67,7 +67,7 @@ func MemoryQueue(size int) Queue {
 }
 
 // Enqueue implementation.
-func (mq *memoryQueue) Enqueue(ctx context.Context, urls ...string) error {
+func (mq *memoryQueue) Enqueue(ctx context.Context, urls URLs) error {
 	if len(urls) == 0 {
 		return nil
 	}
@@ -91,7 +91,7 @@ func (mq *memoryQueue) Enqueue(ctx context.Context, urls ...string) error {
 }
 
 // Dequeue implementation.
-func (mq *memoryQueue) Dequeue(ctx context.Context) (string, error) {
+func (mq *memoryQueue) Dequeue(ctx context.Context) (*URL, error) {
 	mq.cond.L.Lock()
 	defer mq.cond.L.Unlock()
 
@@ -100,11 +100,11 @@ func (mq *memoryQueue) Dequeue(ctx context.Context) (string, error) {
 	}
 
 	if ctx.Err() != nil {
-		return "", ctx.Err()
+		return nil, ctx.Err()
 	}
 
 	if mq.stopped {
-		return "", io.EOF
+		return nil, io.EOF
 	}
 
 	url := mq.pending[0]
@@ -114,7 +114,7 @@ func (mq *memoryQueue) Dequeue(ctx context.Context) (string, error) {
 }
 
 // Done implementation.
-func (mq *memoryQueue) Done(string) {
+func (mq *memoryQueue) Done(*URL) {
 	mq.wg.Done()
 }
 

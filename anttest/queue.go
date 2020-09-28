@@ -3,6 +3,7 @@ package anttest
 import (
 	"context"
 	"io"
+	"net/url"
 	"sort"
 	"strconv"
 	"testing"
@@ -19,18 +20,19 @@ func TestQueue(t *testing.T, new func(testing.TB) ant.Queue) {
 	t.Run("enqueue dequeue", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
+		var urls = parseURLs(t, "https://a", "https://b")
 		var queue = new(t)
 
-		err := queue.Enqueue(ctx, "a", "b")
+		err := queue.Enqueue(ctx, urls)
 		assert.NoError(err)
 
 		a, err := queue.Dequeue(ctx)
 		assert.NoError(err)
-		assert.Equal("a", a)
+		assert.Equal("https://a", a.String())
 
 		b, err := queue.Dequeue(ctx)
 		assert.NoError(err)
-		assert.Equal("b", b)
+		assert.Equal("https://b", b.String())
 	})
 
 	t.Run("enqueue multi", func(t *testing.T) {
@@ -39,7 +41,8 @@ func TestQueue(t *testing.T, new func(testing.TB) ant.Queue) {
 		var queue = new(t)
 
 		for j := 0; j < 1000; j++ {
-			err := queue.Enqueue(ctx, strconv.Itoa(j))
+			urls := parseURLs(t, "https://"+strconv.Itoa(j))
+			err := queue.Enqueue(ctx, urls)
 			assert.NoError(err)
 		}
 	})
@@ -47,24 +50,26 @@ func TestQueue(t *testing.T, new func(testing.TB) ant.Queue) {
 	t.Run("enqueue canceled context", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
+		var urls = parseURLs(t, "https://a", "https://b")
 		var queue = new(t)
 
 		ctx, cancel := context.WithCancel(ctx)
 		cancel()
 
-		err := queue.Enqueue(ctx, "a", "b")
+		err := queue.Enqueue(ctx, urls)
 		assert.Equal(context.Canceled, err)
 	})
 
 	t.Run("enqueue closed", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
+		var urls = parseURLs(t, "https://a", "https://b")
 		var queue = new(t)
 
 		err := queue.Close()
 		assert.NoError(err)
 
-		err = queue.Enqueue(ctx, "a", "b")
+		err = queue.Enqueue(ctx, urls)
 		assert.Equal(io.EOF, err)
 	})
 
@@ -83,19 +88,21 @@ func TestQueue(t *testing.T, new func(testing.TB) ant.Queue) {
 				if err != nil {
 					return err
 				}
-				recv[j] = u
+				recv[j] = u.String()
 				return err
 			})
 		}
 
-		err := queue.Enqueue(ctx, "a", "b", "c")
+		urls := parseURLs(t, "https://a", "https://b", "https://c")
+		err := queue.Enqueue(ctx, urls)
 		assert.NoError(err)
 
 		err = eg.Wait()
 		assert.NoError(err)
 
 		sort.Strings(recv)
-		assert.Equal([]string{"a", "b", "c"}, recv)
+
+		assert.Equal(recv, urlStrings(t, urls))
 	})
 
 	t.Run("dequeue closed", func(t *testing.T) {
@@ -126,12 +133,12 @@ func TestQueue(t *testing.T, new func(testing.TB) ant.Queue) {
 // BenchmarkQueue benchmarks a queue implementation.
 func BenchmarkQueue(b *testing.B, new func(testing.TB) ant.Queue) {
 	var ctx = context.Background()
-	var url = "a"
+	var urls = parseURLs(b, "https://a")
 	var queue = new(b)
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			if err := queue.Enqueue(ctx, url); err != nil {
+			if err := queue.Enqueue(ctx, urls); err != nil {
 				b.Fatalf("enqueue: %s", err)
 			}
 			if _, err := queue.Dequeue(ctx); err != nil {
@@ -141,4 +148,33 @@ func BenchmarkQueue(b *testing.B, new func(testing.TB) ant.Queue) {
 	})
 
 	queue.Close()
+}
+
+func parseURLs(t testing.TB, rawurls ...string) []*url.URL {
+	var ret = make([]*url.URL, 0, len(rawurls))
+
+	t.Helper()
+
+	for _, rawurl := range rawurls {
+		u, err := url.Parse(rawurl)
+		if err != nil {
+			t.Fatalf("anttest: parse url %q - %s", rawurl, err)
+		}
+		ret = append(ret, u)
+	}
+
+	return ret
+}
+
+func urlStrings(t testing.TB, urls []*url.URL) []string {
+	var ret = make([]string, 0, len(urls))
+
+	t.Helper()
+
+	for _, u := range urls {
+		ret = append(ret, u.String())
+	}
+
+	sort.Strings(ret)
+	return ret
 }

@@ -11,13 +11,17 @@ import (
 
 func TestPage(t *testing.T) {
 	t.Run("urls", func(t *testing.T) {
-		var page = makePage(t, `<a href="/foo">foo</a>`)
+		var page = makePage(t, `
+			<a href="/foo">foo</a>
+			<a href="https://foo.com">abs</a>
+		`)
 		var assert = require.New(t)
 
 		all := page.URLs()
 
-		assert.Equal(1, len(all))
-		assert.Equal("https://example.com/foo", all[0])
+		assert.Equal(2, len(all))
+		assert.Equal("https://example.com/foo", all[0].String())
+		assert.Equal("https://foo.com", all[1].String())
 	})
 
 	t.Run("text", func(t *testing.T) {

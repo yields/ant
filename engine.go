@@ -119,7 +119,7 @@ func (eng *Engine) Run(ctx context.Context, urls ...string) error {
 	}
 
 	// Enqueue initial URLs.
-	if err := eng.enqueue(ctx, urls...); err != nil {
+	if err := eng.Enqueue(ctx, urls...); err != nil {
 		return fmt.Errorf("ant: enqueue - %w", err)
 	}
 
@@ -144,30 +144,44 @@ func (eng *Engine) Run(ctx context.Context, urls ...string) error {
 //
 // The method will also de-duplicate the URLs, ensuring
 // that URLs will not be visited more than once.
-func (eng *Engine) enqueue(ctx context.Context, urls ...string) error {
-	var batch = make([]string, 0, len(urls))
+func (eng *Engine) Enqueue(ctx context.Context, rawurls ...string) error {
+	var batch = make(URLs, 0, len(rawurls))
 
-	for _, rawurl := range urls {
-		if u, err := url.Parse(rawurl); err == nil {
-			allowed, err := eng.robots.Allowed(ctx, robots.Request{
-				URL:       u,
-				UserAgent: UserAgent,
-			})
-			if err != nil {
-				return fmt.Errorf("ant: robots allowed %q - %w", u, err)
-			}
-			if allowed {
-				batch = append(batch, u.String())
-			}
+	for _, rawurl := range rawurls {
+		u, err := url.Parse(rawurl)
+		if err != nil {
+			return fmt.Errorf("ant: parse url %q - %w", rawurl, err)
+		}
+		batch = append(batch, u)
+	}
+
+	return eng.enqueue(ctx, batch)
+}
+
+// Enqueue enqueues the given parsed urls.
+func (eng *Engine) enqueue(ctx context.Context, batch URLs) error {
+	var next = make(URLs, 0, len(batch))
+
+	for _, u := range batch {
+		allowed, err := eng.robots.Allowed(ctx, robots.Request{
+			URL:       u,
+			UserAgent: UserAgent,
+		})
+		if err != nil {
+			return fmt.Errorf("ant: robots allowed %q - %w", u, err)
+		}
+		if allowed {
+			norm.NormalizeURL(u)
+			next = append(next, u)
 		}
 	}
 
-	next, err := eng.dedupe(ctx, eng.matches(batch))
+	next, err := eng.dedupe(ctx, eng.matches(next))
 	if err != nil {
 		return err
 	}
 
-	if err := eng.queue.Enqueue(ctx, next...); err != nil {
+	if err := eng.queue.Enqueue(ctx, next); err != nil {
 		return err
 	}
 
@@ -193,7 +207,7 @@ func (eng *Engine) run(ctx context.Context) error {
 }
 
 // Process processes a single url.
-func (eng *Engine) process(ctx context.Context, url string) error {
+func (eng *Engine) process(ctx context.Context, url *URL) error {
 	defer eng.queue.Done(url)
 
 	// Potential limits.
@@ -208,7 +222,7 @@ func (eng *Engine) process(ctx context.Context, url string) error {
 	}
 
 	// Enqueue URLs.
-	if err := eng.enqueue(ctx, urls...); err != nil {
+	if err := eng.enqueue(ctx, urls); err != nil {
 		return fmt.Errorf("ant: enqueue - %w", err)
 	}
 
@@ -216,7 +230,7 @@ func (eng *Engine) process(ctx context.Context, url string) error {
 }
 
 // Scrape scrapes the given URL and returns the next URLs.
-func (eng *Engine) scrape(ctx context.Context, url string) ([]string, error) {
+func (eng *Engine) scrape(ctx context.Context, url *URL) (URLs, error) {
 	page, err := eng.fetcher.Fetch(ctx, url)
 
 	if skip(err) {
@@ -238,18 +252,8 @@ func (eng *Engine) scrape(ctx context.Context, url string) ([]string, error) {
 }
 
 // Dedupe de-duplicates the given slice of URLs.
-func (eng *Engine) dedupe(ctx context.Context, urls []string) ([]string, error) {
-	var normalized = make([]string, 0, len(urls))
-
-	for _, url := range urls {
-		url, err := norm.Normalize(url)
-		if err != nil {
-			return nil, fmt.Errorf("ant: normalize %q - %w", url, err)
-		}
-		normalized = append(normalized, url)
-	}
-
-	deduped, err := eng.deduper.Dedupe(ctx, normalized)
+func (eng *Engine) dedupe(ctx context.Context, urls URLs) (URLs, error) {
+	deduped, err := eng.deduper.Dedupe(ctx, urls)
 	if err != nil {
 		return nil, fmt.Errorf("ant: dedupe - %w", err)
 	}
@@ -258,20 +262,15 @@ func (eng *Engine) dedupe(ctx context.Context, urls []string) ([]string, error) 
 }
 
 // Limit runs all configured limiters.
-func (eng *Engine) limit(ctx context.Context, rawurl string) error {
-	u, err := url.Parse(rawurl)
-	if err != nil {
-		return fmt.Errorf("ant: parse url - %w", err)
-	}
-
+func (eng *Engine) limit(ctx context.Context, url *URL) error {
 	for _, l := range eng.limiters {
-		if err := l.Limit(ctx, u); err != nil {
-			return fmt.Errorf("ant: limit %q - %w", u, err)
+		if err := l.Limit(ctx, url); err != nil {
+			return fmt.Errorf("ant: limit %q - %w", url, err)
 		}
 	}
 
-	err = eng.robots.Wait(ctx, robots.Request{
-		URL:       u,
+	err := eng.robots.Wait(ctx, robots.Request{
+		URL:       url,
 		UserAgent: UserAgent,
 	})
 	if err != nil {
@@ -282,14 +281,12 @@ func (eng *Engine) limit(ctx context.Context, rawurl string) error {
 }
 
 // Matches returns all URLs that match the matcher.
-func (eng *Engine) matches(urls []string) []string {
+func (eng *Engine) matches(urls URLs) URLs {
 	if eng.matcher != nil {
-		ret := make([]string, 0, len(urls))
-		for _, rawurl := range urls {
-			if u, err := url.Parse(rawurl); err == nil {
-				if eng.matcher.Match(u) {
-					ret = append(ret, u.String())
-				}
+		ret := make(URLs, 0, len(urls))
+		for _, u := range urls {
+			if eng.matcher.Match(u) {
+				ret = append(ret, u)
 			}
 		}
 		return ret

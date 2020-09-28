@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -87,13 +88,18 @@ func (err httpError) Temporary() bool {
 }
 
 // Fetch fetches a page at URL.
-func Fetch(ctx context.Context, url string) (*Page, error) {
-	return (HTTP{}).Fetch(ctx, url)
+func Fetch(ctx context.Context, rawurl string) (*Page, error) {
+	u, err := url.Parse(rawurl)
+	if err != nil {
+		return nil, fmt.Errorf("ant: parse url %q - %w", rawurl, err)
+	}
+
+	return (HTTP{}).Fetch(ctx, u)
 }
 
 // Fetch implementation.
-func (h HTTP) Fetch(ctx context.Context, url string) (*Page, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+func (h HTTP) Fetch(ctx context.Context, url *URL) (*Page, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("ant: new request - %w", err)
 	}

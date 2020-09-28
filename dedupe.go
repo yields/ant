@@ -21,7 +21,7 @@ type Deduper interface {
 	// If an error is returned that implements
 	// `Temporary() bool` and returns true, the
 	// engine will retry.
-	Dedupe(ctx context.Context, urls []string) ([]string, error)
+	Dedupe(ctx context.Context, urls URLs) (URLs, error)
 }
 
 // Dedupe implements an in-memory deduper.
@@ -35,12 +35,12 @@ func DedupeMap() Deduper {
 }
 
 // Dedupe implementation.
-func (d *deduper) Dedupe(ctx context.Context, urls []string) ([]string, error) {
-	var ret = make([]string, 0, len(urls))
+func (d *deduper) Dedupe(ctx context.Context, urls URLs) (URLs, error) {
+	var ret = make(URLs, 0, len(urls))
 
-	for _, url := range urls {
-		if _, exists := d.m.LoadOrStore(url, nil); !exists {
-			ret = append(ret, url)
+	for _, u := range urls {
+		if _, exists := d.m.LoadOrStore(u.String(), nil); !exists {
+			ret = append(ret, u)
 		}
 	}
 
@@ -60,13 +60,14 @@ func DedupeBF(k, m uint) Deduper {
 }
 
 // Dedupe implementation.
-func (d *dedupebf) Dedupe(ctx context.Context, urls []string) ([]string, error) {
-	var ret = make([]string, 0, len(urls))
+func (d *dedupebf) Dedupe(ctx context.Context, urls URLs) (URLs, error) {
+	var ret = make(URLs, 0, len(urls))
 
-	for _, url := range urls {
-		if !d.filter.Test([]byte(url)) {
-			d.filter.Add([]byte(url))
-			ret = append(ret, url)
+	for _, u := range urls {
+		v := []byte(u.String())
+		if !d.filter.Test(v) {
+			d.filter.Add(v)
+			ret = append(ret, u)
 		}
 	}
 

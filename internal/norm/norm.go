@@ -26,14 +26,19 @@ func Normalize(rawurl string) (string, error) {
 		return "", err
 	}
 
+	NormalizeURL(u)
+
+	return u.String(), nil
+}
+
+// NormalizeURL normalizes a parsed URL.
+func NormalizeURL(u *url.URL) {
 	u.Scheme = strings.ToLower(u.Scheme)
 	u.Host = hostname(u)
 	u.Path = pathname(u)
 	u.RawQuery = query(u.RawQuery)
 	u.ForceQuery = false
 	u.Fragment = ""
-
-	return u.String(), nil
 }
 
 // Hostname normalizes the hostname.
