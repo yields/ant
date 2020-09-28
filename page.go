@@ -61,12 +61,12 @@ func (p *Page) Text(selector string) string {
 // URLs returns all URLs on the page.
 //
 // The method skips any invalid URLs.
-func (p *Page) URLs() []string {
+func (p *Page) URLs() URLs {
 	return p.resolve(`a[href]`)
 }
 
 // Next all URLs matching the given selector.
-func (p *Page) Next(selector string) ([]string, error) {
+func (p *Page) Next(selector string) (URLs, error) {
 	return p.resolve(selector), nil
 }
 
@@ -79,17 +79,24 @@ func (p *Page) Scan(dst interface{}) error {
 }
 
 // Resolve returns resolved URLs matching selector
-func (p *Page) resolve(selector string) []string {
+func (p *Page) resolve(selector string) URLs {
 	var anchors = p.Query(selector)
-	var ret []string
+	var ret = make(URLs, 0, len(anchors))
 
 	for _, a := range anchors {
 		if href, ok := scan.Attr(a, "href"); ok {
-			if u, err := url.Parse(href); err == nil {
-				switch abs := p.URL.ResolveReference(u); abs.Scheme {
-				case "https", "http":
-					ret = append(ret, abs.String())
-				}
+			u, err := url.Parse(href)
+			if err != nil {
+				continue
+			}
+
+			if !u.IsAbs() {
+				u = p.URL.ResolveReference(u)
+			}
+
+			switch u.Scheme {
+			case "https", "http":
+				ret = append(ret, u)
 			}
 		}
 	}
