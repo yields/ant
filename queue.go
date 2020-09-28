@@ -29,6 +29,18 @@ type Queue interface {
 	// until the queue is closed.
 	Dequeue(ctx context.Context) (string, error)
 
+	// Done acknowledges a URL.
+	//
+	// When a URL has been handled by the engine the method
+	// is called with the URL.
+	Done(url string)
+
+	// Wait blocks until the queue is closed.
+	//
+	// When the engine encounters an error, or there are
+	// no more URLs to handle the method should unblock.
+	Wait()
+
 	// Close closes the queue.
 	//
 	// The method blocks until the queue is closed
@@ -41,6 +53,7 @@ type memoryQueue struct {
 	pending []string
 	cond    *sync.Cond
 	stopped bool
+	wg      *sync.WaitGroup
 }
 
 // MemoryQueue returns a new memory queue.
@@ -49,6 +62,7 @@ func MemoryQueue(size int) Queue {
 		pending: make([]string, 0, size),
 		cond:    sync.NewCond(&sync.RWMutex{}),
 		stopped: false,
+		wg:      &sync.WaitGroup{},
 	}
 }
 
@@ -70,6 +84,7 @@ func (mq *memoryQueue) Enqueue(ctx context.Context, urls ...string) error {
 	}
 
 	mq.pending = append(mq.pending, urls...)
+	mq.wg.Add(len(urls))
 	mq.cond.Broadcast()
 
 	return nil
@@ -98,10 +113,24 @@ func (mq *memoryQueue) Dequeue(ctx context.Context) (string, error) {
 	return url, nil
 }
 
+// Done implementation.
+func (mq *memoryQueue) Done(string) {
+	mq.wg.Done()
+}
+
+// Wait implementation.
+func (mq *memoryQueue) Wait() {
+	mq.wg.Wait()
+}
+
 // Close implementation.
 func (mq *memoryQueue) Close() error {
 	mq.cond.L.Lock()
 	defer mq.cond.L.Unlock()
+
+	for range mq.pending {
+		mq.wg.Done()
+	}
 
 	mq.stopped = true
 	mq.pending = mq.pending[:0]
