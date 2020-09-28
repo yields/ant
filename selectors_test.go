@@ -15,13 +15,3 @@ func TestSelectors(t *testing.T) {
 		assert.NotNil(s)
 	})
 }
-
-func BenchmarkSelectors(b *testing.B) {
-	b.Run("compile", func(b *testing.B) {
-		var sel = `title`
-
-		for i := 0; i < b.N; i++ {
-			selectors.compile(sel)
-		}
-	})
-}
