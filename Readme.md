@@ -7,7 +7,7 @@
 
   ```go
   var repo struct {
-    About string `css:".f4.mt3"
+    About string `css:".f4.mt3"`
   }
 
   page.Scan(&repo)
