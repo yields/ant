@@ -28,7 +28,7 @@ const (
 	// Addr is the default address to connect to.
 	//
 	// It is used if `Client.Addr` is empty.
-	Addr = "127.0.0.1:9222"
+	Addr = "http://127.0.0.1:9222"
 )
 
 // Client implements a chrome debugger protocol client.
@@ -41,9 +41,6 @@ const (
 // server locally at `127.0.0.1:9222`.
 type Client struct {
 	// Addr is the address to connect to.
-	//
-	// The address must be of `<host>:<port>` as it may
-	// connect to the HTTP as well as the websocket endpoints.
 	//
 	// If empty, it defaults to `antcdp.Addr`.
 	Addr string
@@ -119,7 +116,7 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 
 // Target returns a target.
 func (c *Client) target(ctx context.Context) (*devtool.Target, error) {
-	var d = devtool.New("http://" + c.addr())
+	var d = devtool.New(c.addr())
 
 	t, err := d.Get(ctx, devtool.Page)
 
