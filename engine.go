@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"runtime"
 
-	"github.com/yields/ant/internal/norm"
 	"github.com/yields/ant/internal/robots"
 	"golang.org/x/sync/errgroup"
 )
@@ -160,23 +159,7 @@ func (eng *Engine) Enqueue(ctx context.Context, rawurls ...string) error {
 
 // Enqueue enqueues the given parsed urls.
 func (eng *Engine) enqueue(ctx context.Context, batch URLs) error {
-	var next = make(URLs, 0, len(batch))
-
-	for _, u := range batch {
-		allowed, err := eng.robots.Allowed(ctx, robots.Request{
-			URL:       u,
-			UserAgent: UserAgent,
-		})
-		if err != nil {
-			return fmt.Errorf("ant: robots allowed %q - %w", u, err)
-		}
-		if allowed {
-			norm.NormalizeURL(u)
-			next = append(next, u)
-		}
-	}
-
-	next, err := eng.dedupe(ctx, eng.matches(next))
+	next, err := eng.dedupe(ctx, eng.matches(batch))
 	if err != nil {
 		return err
 	}
@@ -209,6 +192,18 @@ func (eng *Engine) run(ctx context.Context) error {
 // Process processes a single url.
 func (eng *Engine) process(ctx context.Context, url *URL) error {
 	defer eng.queue.Done(url)
+
+	// Check robots.txt.
+	allowed, err := eng.robots.Allowed(ctx, robots.Request{
+		URL:       url,
+		UserAgent: UserAgent,
+	})
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return nil
+	}
 
 	// Potential limits.
 	if err := eng.limit(ctx, url); err != nil {
