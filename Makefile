@@ -1,12 +1,25 @@
 
+headless-image := chromedp/headless-shell:stable
 pkg  := .
 func := .
 
 deps:
 	@go get -d -t ./...
+	@docker pull $(headless-image)
 
 test:
 	@go test --cover --timeout 5s --race ./...
+
+test.cdp:
+	@GOOS=linux GOARCH=amd64 go test -c ./antcdp
+	@mv antcdp.test antcdp
+	@docker run --rm \
+		--volume=$(PWD)/antcdp:/antcdp \
+		--entrypoint=/antcdp/antcdp.test \
+		--workdir=/antcdp \
+		--env=HEADLESS_SHELL=/headless-shell/headless-shell \
+		$(headless-image) \
+		--test.timeout 10s
 
 bench:
 	@go test \
@@ -28,4 +41,4 @@ cover:
 	@go tool cover --html=test.cover
 
 clean:
-	rm -fr *.test *.prof *.cover *.trace
+	rm -fr *.test *.prof *.cover *.trace antcdp/*.test

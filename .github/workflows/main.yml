@@ -15,3 +15,4 @@ jobs:
           restore-keys: ${{ runner.os }}-go-
       - run: make deps
       - run: make test
+      - run: make test.cdp

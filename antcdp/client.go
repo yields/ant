@@ -4,7 +4,7 @@
 //
 //   eng, err := ant.NewEngine(ant.EngineConfig{
 //     Fetcher: &ant.Fetcher{
-//       Client: antcdp.Client{},
+//       Client: &antcdp.Client{},
 //     }
 //   })
 //

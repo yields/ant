@@ -2,22 +2,32 @@ package antcdp
 
 import (
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"os/exec"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestClient(t *testing.T) {
+	if os.Getenv("HEADLESS_SHELL") == "" {
+		t.Skipf("skipped antcdp tests, set HEADLESS_SHELL to run.")
+	}
+
+	boot(t, os.Getenv("HEADLESS_DEBUG") == "1")
+
 	t.Run("performs a request", func(t *testing.T) {
 		var assert = require.New(t)
 		var srv = serve(t, "testdata/simple.html")
 		var req = request(t, srv.URL)
-		var client = &Client{}
+		var client = setup(t)
 
 		resp, err := client.Do(req)
 
@@ -33,7 +43,7 @@ func TestClient(t *testing.T) {
 		var assert = require.New(t)
 		var srv = serve(t, "testdata/404.html")
 		var req = request(t, srv.URL)
-		var client = &Client{}
+		var client = setup(t)
 
 		resp, err := client.Do(req)
 		assert.NoError(err)
@@ -58,13 +68,76 @@ func TestClient(t *testing.T) {
 		var assert = require.New(t)
 		var srv = serve(t, "testdata/404.html")
 		var req = request(t, srv.URL)
-		var client = &Client{}
+		var client = setup(t)
 
 		resp, err := client.Do(req)
 		assert.NoError(err)
 		assert.Equal(int64(123), resp.ContentLength)
 		assert.Equal("123", resp.Header.Get("Content-Length"))
 	})
+}
+
+var (
+	bin  = os.Getenv("HEADLESS_SHELL")
+	args = [...]string{
+		"--no-sandbox",
+		"--remote-debugging-address=127.0.0.1",
+		"--remote-debugging-port=9222",
+	}
+)
+
+func boot(t testing.TB, debug bool) {
+	var cmd = exec.Command(bin, args[:]...)
+	var errc = make(chan error)
+	var addr = "127.0.0.1:9222"
+	var maxattempts = 5
+	var backoff = 1 * time.Second
+	var ready bool
+
+	t.Logf("$ %s %v ", bin, args)
+
+	if debug {
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+	}
+
+	if err := cmd.Start(); err != nil {
+		log.Fatalf("$ %s %v => %s", bin, args, err)
+	}
+
+	for j := 0; j < maxattempts; j++ {
+		c, err := net.Dial("tcp", addr)
+		if err != nil {
+			time.Sleep(backoff)
+			continue
+		}
+		c.Close()
+		ready = true
+	}
+
+	if !ready {
+		t.Fatalf("cannot connect to headless-shell at %s", addr)
+	}
+
+	go func() {
+		errc <- cmd.Wait()
+	}()
+
+	t.Cleanup(func() {
+		if debug {
+			t.Logf("cleanup")
+		}
+		if err := cmd.Process.Kill(); err != nil {
+			t.Fatalf("kill %s - %s", bin, err)
+		}
+		<-errc
+	})
+}
+
+func setup(t testing.TB) *Client {
+	t.Helper()
+
+	return &Client{}
 }
 
 func request(t testing.TB, rawurl string) *http.Request {
