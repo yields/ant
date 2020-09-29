@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"runtime"
 
+	"github.com/yields/ant/internal/norm"
 	"github.com/yields/ant/internal/robots"
 	"golang.org/x/sync/errgroup"
 )
@@ -27,7 +28,7 @@ type EngineConfig struct {
 	// Fetcher is the page fetcher to use.
 	//
 	// If nil, the default HTTP fetcher is used.
-	Fetcher Fetcher
+	Fetcher *Fetcher
 
 	// Queue is the URL queue to use.
 	//
@@ -63,7 +64,7 @@ type EngineConfig struct {
 type Engine struct {
 	deduper     Deduper
 	scraper     Scraper
-	fetcher     Fetcher
+	fetcher     *Fetcher
 	queue       Queue
 	matcher     Matcher
 	limiters    []Limiter
@@ -82,7 +83,7 @@ func NewEngine(c EngineConfig) (*Engine, error) {
 	}
 
 	if c.Fetcher == nil {
-		c.Fetcher = HTTP{}
+		c.Fetcher = &Fetcher{}
 	}
 
 	if c.Concurrency <= 0 {
@@ -151,6 +152,7 @@ func (eng *Engine) Enqueue(ctx context.Context, rawurls ...string) error {
 		if err != nil {
 			return fmt.Errorf("ant: parse url %q - %w", rawurl, err)
 		}
+		norm.NormalizeURL(u)
 		batch = append(batch, u)
 	}
 
@@ -196,7 +198,7 @@ func (eng *Engine) process(ctx context.Context, url *URL) error {
 	// Check robots.txt.
 	allowed, err := eng.robots.Allowed(ctx, robots.Request{
 		URL:       url,
-		UserAgent: UserAgent,
+		UserAgent: "ant",
 	})
 	if err != nil {
 		return err
@@ -226,7 +228,7 @@ func (eng *Engine) process(ctx context.Context, url *URL) error {
 
 // Scrape scrapes the given URL and returns the next URLs.
 func (eng *Engine) scrape(ctx context.Context, url *URL) (URLs, error) {
-	page, err := eng.fetcher.Fetch(ctx, url)
+	page, err := eng.fetcher.fetch(ctx, url)
 
 	if skip(err) {
 		return nil, nil
@@ -266,7 +268,7 @@ func (eng *Engine) limit(ctx context.Context, url *URL) error {
 
 	err := eng.robots.Wait(ctx, robots.Request{
 		URL:       url,
-		UserAgent: UserAgent,
+		UserAgent: "ant",
 	})
 	if err != nil {
 		return fmt.Errorf("ant: robots wait - %w", err)

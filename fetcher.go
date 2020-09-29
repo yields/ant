@@ -3,127 +3,63 @@ package ant
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
-	"time"
 )
 
-var (
-	// UserAgent is the user agent that ant sends  by default.
-	UserAgent = "ant/1"
-
-	// Client is the default http client to use.
-	//
-	// It is configured the same way as the `http.DefaultClient`
-	// except for 3 changes:
-	//
-	//  - MaxIdleConns => 0
-	//  - MaxIdleConnsPerHost => 1000
-	//  - Timeout => 10
-	//
-	Client = &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-				DualStack: true,
-			}).DialContext,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          0,    // was 100.
-			MaxIdleConnsPerHost:   1000, // was 2.
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-		Timeout: 10 * time.Second,
-	}
-)
-
-// HTTP implements an HTTP page fetcher.
-type HTTP struct {
-	// UserAgent is a user agent func.
-	//
-	// If empty, `ant.UserAgent` is used instead.
-	UserAgent string
-
-	// Prepare is a function to prepare a request.
-	//
-	// The function is called before every request.
-	Prepare func(*http.Request)
-
-	// Client is the HTTP client to use.
-	//
-	// If empty, `http.DefaultClient` is used instead.
-	Client *http.Client
+// DefaultFetcher is the default fetcher to use.
+var DefaultFetcher = &Fetcher{
+	Client:    DefaultClient,
+	UserAgent: nil,
 }
 
-// HttpError represents an http error.
-type httpError struct {
-	status int
-	url    string
-}
-
-// Error implementation.
-func (err httpError) Error() string {
-	return fmt.Sprintf("ant: GET %q - %d %s",
-		err.url,
-		err.status,
-		http.StatusText(err.status),
-	)
-}
-
-// Skip implementation.
-func (err httpError) Skip() bool {
-	return err.status == 404 ||
-		err.status == 406 ||
-		err.status == 405
-}
-
-// Temporary implementation.
-func (err httpError) Temporary() bool {
-	return err.status == 500 ||
-		err.status == 503
-}
-
-// Fetch fetches a page at URL.
+// Fetch fetches a page from URL.
 func Fetch(ctx context.Context, rawurl string) (*Page, error) {
 	u, err := url.Parse(rawurl)
 	if err != nil {
-		return nil, fmt.Errorf("ant: parse url %q - %w", rawurl, err)
+		return nil, err
 	}
-
-	return (HTTP{}).Fetch(ctx, u)
+	return DefaultFetcher.fetch(ctx, u)
 }
 
-// Fetch implementation.
-func (h HTTP) Fetch(ctx context.Context, url *URL) (*Page, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("ant: new request - %w", err)
+// Fetcher implements a page fetcher.
+type Fetcher struct {
+	// Client is the client to use.
+	//
+	// If nil, ant.DefaultClient is used.
+	Client Client
+
+	// UserAgent is the user agent to use.
+	//
+	// It implements the fmt.Stringer interface
+	// to allow user agent spoofing when needed.
+	//
+	// If nil, the client decides the user agent.
+	UserAgent fmt.Stringer
+}
+
+// Fetch fetches a new page by URL.
+func (f *Fetcher) fetch(ctx context.Context, url *URL) (*Page, error) {
+	var client = f.client()
+	var req = http.Request{
+		Method: "GET",
+		URL:    url,
+		Header: f.headers(),
+		Body:   nil,
+		Cancel: ctx.Done(),
 	}
 
-	req.Header.Set("User-Agent", h.userAgent())
-	req.Header.Set("Accept-Language", "en-US")
-	req.Header.Set("Accept", "text/html")
-
-	if h.Prepare != nil {
-		h.Prepare(req)
-	}
-
-	resp, err := h.client().Do(req)
-
+	resp, err := client.Do(&req)
 	if err != nil {
-		return nil, fmt.Errorf("ant: request %q - %w", url, err)
+		return nil, fmt.Errorf("ant: %s %q - %w", req.Method, req.URL, err)
 	}
 
 	if resp.StatusCode >= 400 {
-		resp.Body.Close()
-		return nil, httpError{
-			status: resp.StatusCode,
-			url:    resp.Request.URL.String(),
-		}
+		return nil, fmt.Errorf("ant: %s %q - %s",
+			resp.Request.Method,
+			resp.Request.URL,
+			resp.Status,
+		)
 	}
 
 	return &Page{
@@ -132,18 +68,23 @@ func (h HTTP) Fetch(ctx context.Context, url *URL) (*Page, error) {
 	}, nil
 }
 
-// UserAgent returns the user agent.
-func (h HTTP) userAgent() string {
-	if h.UserAgent != "" {
-		return h.UserAgent
+// Headers returns all headers.
+func (f *Fetcher) headers() http.Header {
+	var hdr = make(http.Header)
+
+	hdr.Set("Accept", "text/html; charset=UTF-8")
+
+	if ua := f.UserAgent; ua != nil {
+		hdr.Set("User-Agent", ua.String())
 	}
-	return UserAgent
+
+	return hdr
 }
 
 // Client returns the client to use.
-func (h HTTP) client() *http.Client {
-	if h.Client != nil {
-		return h.Client
+func (f *Fetcher) client() Client {
+	if f.Client != nil {
+		return f.Client
 	}
-	return Client
+	return DefaultClient
 }
