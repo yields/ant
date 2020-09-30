@@ -3,7 +3,7 @@ module github.com/yields/ant
 go 1.14
 
 require (
-	github.com/andybalholm/cascadia v1.1.0
+	github.com/andybalholm/cascadia v1.2.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/mafredri/cdp v0.29.2
