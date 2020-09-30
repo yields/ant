@@ -13,7 +13,7 @@
 
 <h1 align=center>
   <a href="https://github.com/yields/ant/workflows/test">
-    <img src="https://github.com/yields/ant/workflows/test/badge.svg" />
+    <img src="https://github.com/yields/ant/workflows/test/badge.svg?event=push" />
   </a>
   <a href="https://pkg.go.dev/github.com/yields/ant">
     <img src="https://pkg.go.dev/badge/github.com/yields/ant" />
