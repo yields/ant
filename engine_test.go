@@ -22,7 +22,6 @@ func TestEngine(t *testing.T) {
 		var visitor = &visitor{}
 		var eng = setup(t, visitor)
 		var srv = server(t, "example.com")
-		defer srv.Close()
 
 		err := eng.Run(ctx, srv.URL)
 
@@ -46,7 +45,6 @@ func TestEngine(t *testing.T) {
 		var scraper = &scraperError{n: 2, err: io.ErrUnexpectedEOF}
 		var eng = setup(t, scraper)
 		var srv = server(t, "example.com")
-		defer srv.Close()
 
 		err := eng.Run(ctx, srv.URL)
 		assert.Error(err)
@@ -59,7 +57,6 @@ func TestEngine(t *testing.T) {
 		var visitor = &visitor{}
 		var eng = setup(t, visitor)
 		var srv = server(t, "example.com")
-		defer srv.Close()
 
 		subctx, cancel := context.WithCancel(ctx)
 		cancel()
@@ -138,9 +135,14 @@ func server(t testing.TB, dir string) *httptest.Server {
 
 	dir = path.Join("testdata", dir)
 	fs := http.FileServer(http.Dir(dir))
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fs.ServeHTTP(w, r)
 	}))
+
+	t.Cleanup(func() {
+		srv.Close()
+	})
 
 	return srv
 }
