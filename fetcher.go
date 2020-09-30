@@ -41,15 +41,17 @@ type Fetcher struct {
 // Fetch fetches a new page by URL.
 func (f *Fetcher) fetch(ctx context.Context, url *URL) (*Page, error) {
 	var client = f.client()
-	var req = http.Request{
-		Method: "GET",
-		URL:    url,
-		Header: f.headers(),
-		Body:   nil,
-		Cancel: ctx.Done(),
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("ant: new request - %w", err)
 	}
 
-	resp, err := client.Do(&req)
+	for k, v := range f.headers() {
+		req.Header[k] = v
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("ant: %s %q - %w", req.Method, req.URL, err)
 	}
