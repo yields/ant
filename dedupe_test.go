@@ -79,3 +79,14 @@ func parseURLs(t testing.TB, rawurls ...string) URLs {
 
 	return ret
 }
+
+func parseURL(t testing.TB, rawurl string) *URL {
+	t.Helper()
+
+	u, err := url.Parse(rawurl)
+	if err != nil {
+		t.Fatalf("parse url %q - %s", rawurl, err)
+	}
+
+	return u
+}

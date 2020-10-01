@@ -8,25 +8,90 @@ import (
 )
 
 func TestMatchers(t *testing.T) {
-	t.Run("regexp", func(t *testing.T) {
-		var assert = require.New(t)
-		var regexp = MatchRegexp(`[a-z]+\.example\.com`)
+	t.Run("hostname", func(t *testing.T) {
+		var cases = []struct {
+			rawurl  string
+			pattern string
+			match   bool
+		}{
+			{"https://foo.example.com", `example.com`, false},
+			{"https://example.com", `example.com`, true},
+		}
 
-		u, _ := url.Parse("https://foo.example.com")
-		assert.True(regexp.Match(u), u.String())
+		for _, c := range cases {
+			t.Run(c.rawurl, func(t *testing.T) {
+				var assert = require.New(t)
+				var match = MatchHostname(c.pattern)
 
-		u, _ = url.Parse("https://example.com")
-		assert.False(regexp.Match(u), u.String())
+				u, err := url.Parse(c.rawurl)
+				assert.NoError(err)
+
+				assert.Equal(c.match, match.Match(u))
+			})
+		}
 	})
 
-	t.Run("hostname", func(t *testing.T) {
+	t.Run("pattern", func(t *testing.T) {
+		var cases = []struct {
+			rawurl  string
+			pattern string
+			match   bool
+		}{
+			{"http://example.com", `example.com`, true},
+			{"https://example.com", `example.com`, true},
+			{"https://foo.example.com", `*example.com`, true},
+			{"https://example.com/foo/baz", `example.com/foo/*`, true},
+
+			{"https://example.com", `example.com/foo/*`, false},
+		}
+
+		for _, c := range cases {
+			t.Run(c.rawurl, func(t *testing.T) {
+				var assert = require.New(t)
+				var match = MatchPattern(c.pattern)
+
+				u, err := url.Parse(c.rawurl)
+				assert.NoError(err)
+
+				assert.Equal(c.match, match.Match(u))
+			})
+		}
+	})
+
+	t.Run("regexp", func(t *testing.T) {
+		var cases = []struct {
+			rawurl  string
+			pattern string
+			match   bool
+		}{
+			{"http://example.com", `example\.com`, true},
+			{"https://example.com", `example\.com`, true},
+			{"https://example.com/foo/baz", `example\.com`, true},
+			{"https://example.com/foo?query", `^example\.com\/foo$`, true},
+		}
+
+		for _, c := range cases {
+			t.Run(c.rawurl, func(t *testing.T) {
+				var assert = require.New(t)
+				var match = MatchRegexp(c.pattern)
+
+				u, err := url.Parse(c.rawurl)
+				assert.NoError(err)
+
+				assert.Equal(c.match, match.Match(u), u)
+			})
+		}
+	})
+
+	t.Run("regexp error", func(t *testing.T) {
 		var assert = require.New(t)
-		var host = MatchHostname(`example.com`)
 
-		u, _ := url.Parse("https://foo.example.com")
-		assert.False(host.Match(u), u.String())
+		defer func() {
+			err, ok := recover().(string)
+			assert.True(ok, "expected a panic")
+			assert.Contains(err, `ant: regexp "[" - error parsing`)
+		}()
 
-		u, _ = url.Parse("https://example.com")
-		assert.True(host.Match(u), u.String())
+		MatchRegexp(`[`)
 	})
 }

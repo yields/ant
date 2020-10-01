@@ -1,4 +1,4 @@
-package norm
+package normalize
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNormalize(t *testing.T) {
+func TestURL(t *testing.T) {
 	var cases = []struct {
 		title  string
 		input  string
@@ -73,7 +73,7 @@ func TestNormalize(t *testing.T) {
 		t.Run(c.title, func(t *testing.T) {
 			var assert = require.New(t)
 
-			v, err := Normalize(c.input)
+			v, err := RawURL(c.input)
 
 			assert.NoError(err)
 			assert.Equal(c.output, v)

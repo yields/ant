@@ -1,5 +1,7 @@
-// Package provides URL normalization.
-package norm
+// Package normalize provides URL normalization.
+//
+// https://en.wikipedia.org/wiki/URI_normalization
+package normalize
 
 import (
 	"net/url"
@@ -8,7 +10,7 @@ import (
 	"strings"
 )
 
-// Normalize normalizes the given raw URL.
+// RawURL normalizes the given raw URL.
 //
 //  - Uppercase percent-encoded triplets.
 //  - Lowercase the scheme and hostname.
@@ -20,25 +22,23 @@ import (
 //  - Removes `?` when query is empty.
 //  - Remove the fragment.
 //
-func Normalize(rawurl string) (string, error) {
+func RawURL(rawurl string) (string, error) {
 	u, err := url.Parse(rawurl)
 	if err != nil {
 		return "", err
 	}
-
-	NormalizeURL(u)
-
-	return u.String(), nil
+	return URL(u).String(), nil
 }
 
-// NormalizeURL normalizes a parsed URL.
-func NormalizeURL(u *url.URL) {
+// URL normalizes a parsed URL.
+func URL(u *url.URL) *url.URL {
 	u.Scheme = strings.ToLower(u.Scheme)
 	u.Host = hostname(u)
 	u.Path = pathname(u)
 	u.RawQuery = query(u.RawQuery)
 	u.ForceQuery = false
 	u.Fragment = ""
+	return u
 }
 
 // Hostname normalizes the hostname.

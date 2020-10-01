@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"runtime"
 
-	"github.com/yields/ant/internal/norm"
+	"github.com/yields/ant/internal/normalize"
 	"github.com/yields/ant/internal/robots"
 	"golang.org/x/sync/errgroup"
 )
@@ -35,11 +35,13 @@ type EngineConfig struct {
 	// If nil, the default in-memory queue is used.
 	Queue Queue
 
-	// Limiters are a set of limiters to run
-	// for each URL just before a request is made.
+	// Limiter is the rate limiter to use.
+	//
+	// The limiter is called with each URL before
+	// it is fetched.
 	//
 	// If nil, no limits are used.
-	Limiters []Limiter
+	Limiter Limiter
 
 	// Matcher is the URL matcher to use.
 	//
@@ -48,6 +50,15 @@ type EngineConfig struct {
 	//
 	// If nil, all URLs are queued.
 	Matcher Matcher
+
+	// Impolite skips any robots.txt checking.
+	//
+	// Note that it does not affect any configured
+	// ratelimiters or matchers.
+	//
+	// By default the engine checks robots.txt, it uses
+	// the default ant.UserAgent.
+	Impolite bool
 
 	// Concurrency controls the amount of goroutines
 	// the engine starts.
@@ -67,8 +78,9 @@ type Engine struct {
 	fetcher     *Fetcher
 	queue       Queue
 	matcher     Matcher
-	limiters    []Limiter
+	limiter     Limiter
 	robots      *robots.Cache
+	impolite    bool
 	concurrency int
 }
 
@@ -100,8 +112,9 @@ func NewEngine(c EngineConfig) (*Engine, error) {
 		fetcher:     c.Fetcher,
 		queue:       c.Queue,
 		matcher:     c.Matcher,
-		limiters:    c.Limiters,
+		limiter:     c.Limiter,
 		robots:      robots.NewCache(1000),
+		impolite:    c.Impolite,
 		concurrency: c.Concurrency,
 	}, nil
 }
@@ -111,6 +124,8 @@ func (eng *Engine) Run(ctx context.Context, urls ...string) error {
 	var eg, subctx = errgroup.WithContext(ctx)
 
 	// Spawn workers.
+	//
+	// TODO: probably need to spawn as needed instead of pooling.
 	for i := 0; i < eng.concurrency; i++ {
 		eg.Go(func() error {
 			defer eng.queue.Close()
@@ -152,7 +167,13 @@ func (eng *Engine) Enqueue(ctx context.Context, rawurls ...string) error {
 		if err != nil {
 			return fmt.Errorf("ant: parse url %q - %w", rawurl, err)
 		}
-		norm.NormalizeURL(u)
+
+		switch u.Scheme {
+		case "https", "http":
+		default:
+			return fmt.Errorf("ant: cannot enqueue invalid URL %q", u)
+		}
+
 		batch = append(batch, u)
 	}
 
@@ -162,7 +183,7 @@ func (eng *Engine) Enqueue(ctx context.Context, rawurls ...string) error {
 // Enqueue enqueues the given parsed urls.
 func (eng *Engine) enqueue(ctx context.Context, batch URLs) error {
 	for j := range batch {
-		norm.NormalizeURL(batch[j])
+		batch[j] = normalize.URL(batch[j])
 	}
 
 	next, err := eng.dedupe(ctx, eng.matches(batch))
@@ -185,7 +206,8 @@ func (eng *Engine) run(ctx context.Context) error {
 	for {
 		url, err := eng.queue.Dequeue(ctx)
 
-		if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
+		if errors.Is(err, io.EOF) ||
+			errors.Is(err, context.Canceled) {
 			return nil
 		}
 
@@ -200,15 +222,17 @@ func (eng *Engine) process(ctx context.Context, url *URL) error {
 	defer eng.queue.Done(url)
 
 	// Check robots.txt.
-	allowed, err := eng.robots.Allowed(ctx, robots.Request{
-		URL:       url,
-		UserAgent: "ant",
-	})
-	if err != nil {
-		return err
-	}
-	if !allowed {
-		return nil
+	if !eng.impolite {
+		allowed, err := eng.robots.Allowed(ctx, robots.Request{
+			URL:       url,
+			UserAgent: UserAgent.String(),
+		})
+		if err != nil {
+			return err
+		}
+		if !allowed {
+			return nil
+		}
 	}
 
 	// Potential limits.
@@ -264,15 +288,19 @@ func (eng *Engine) dedupe(ctx context.Context, urls URLs) (URLs, error) {
 
 // Limit runs all configured limiters.
 func (eng *Engine) limit(ctx context.Context, url *URL) error {
-	for _, l := range eng.limiters {
-		if err := l.Limit(ctx, url); err != nil {
-			return fmt.Errorf("ant: limit %q - %w", url, err)
+	if eng.limiter != nil {
+		if err := eng.limiter.Limit(ctx, url); err != nil {
+			return err
 		}
+	}
+
+	if eng.impolite {
+		return nil
 	}
 
 	err := eng.robots.Wait(ctx, robots.Request{
 		URL:       url,
-		UserAgent: "ant",
+		UserAgent: UserAgent.String(),
 	})
 	if err != nil {
 		return fmt.Errorf("ant: robots wait - %w", err)

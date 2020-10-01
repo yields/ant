@@ -16,6 +16,15 @@ import (
 )
 
 func TestEngine(t *testing.T) {
+	t.Run("nil scraper", func(t *testing.T) {
+		var assert = require.New(t)
+
+		_, err := NewEngine(EngineConfig{})
+
+		assert.Error(err)
+		assert.EqualError(err, `ant: scraper is required`)
+	})
+
 	t.Run("run", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
@@ -36,6 +45,22 @@ func TestEngine(t *testing.T) {
 			"/products.html",
 		}
 
+		assert.Equal(expect, visitor.paths)
+	})
+
+	t.Run("run with matcher", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var visitor = &visitor{}
+		var eng = setup(t, visitor)
+		var srv = server(t, "example.com")
+
+		eng.matcher = MatchPattern("*/")
+		err := eng.Run(ctx, srv.URL)
+
+		assert.NoError(err)
+
+		expect := []string{"/"}
 		assert.Equal(expect, visitor.paths)
 	})
 
@@ -64,7 +89,30 @@ func TestEngine(t *testing.T) {
 		err := eng.Run(subctx, srv.URL+"?wait=1s")
 
 		assert.Error(err)
-		assert.True(errors.Is(err, context.Canceled))
+		assert.True(errors.Is(err, context.Canceled), err.Error())
+	})
+
+	t.Run("enqueue invalid URL", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var eng = setup(t, &visitor{})
+
+		err := eng.Enqueue(ctx, "foo")
+
+		assert.Error(err)
+		assert.EqualError(err, `ant: cannot enqueue invalid URL "foo"`)
+	})
+
+	t.Run("fetch error", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var eng = setup(t, &visitor{})
+
+		eng.impolite = true
+		err := eng.Run(ctx, "http://:9999")
+
+		assert.Error(err)
+		assert.Contains(err.Error(), `connection refused`)
 	})
 }
 
