@@ -7,11 +7,29 @@ import (
 	"net/url"
 )
 
-// DefaultFetcher is the default fetcher to use.
-var DefaultFetcher = &Fetcher{
-	Client:    DefaultClient,
-	UserAgent: nil,
+// StaticAgent is a static user agent string.
+type StaticAgent string
+
+// String implementation.
+func (sa StaticAgent) String() string {
+	return string(sa)
 }
+
+var (
+	// UserAgent is the default user agent to use.
+	//
+	// The user agent is used by default when fetching
+	// pages and robots.txt.
+	UserAgent = StaticAgent("antbot")
+
+	// DefaultFetcher is the default fetcher to use.
+	//
+	// It uses the default client and default user agent.
+	DefaultFetcher = &Fetcher{
+		Client:    DefaultClient,
+		UserAgent: UserAgent,
+	}
+)
 
 // Fetch fetches a page from URL.
 func Fetch(ctx context.Context, rawurl string) (*Page, error) {
