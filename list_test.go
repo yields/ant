@@ -28,6 +28,12 @@ func TestList(t *testing.T) {
 		assert.Equal("title", list.Text())
 	})
 
+	t.Run("text empty", func(t *testing.T) {
+		var assert = require.New(t)
+
+		assert.Equal("", List{}.Text())
+	})
+
 	t.Run("attr", func(t *testing.T) {
 		var assert = require.New(t)
 		var root = parse(t, `<title key=val></title>`)
@@ -37,6 +43,31 @@ func TestList(t *testing.T) {
 
 		assert.True(ok)
 		assert.Equal("val", v)
+	})
+
+	t.Run("attr empty", func(t *testing.T) {
+		var assert = require.New(t)
+
+		v, ok := List{}.Attr("foo")
+
+		assert.False(ok)
+		assert.Equal("", v)
+	})
+
+	t.Run("scan struct", func(t *testing.T) {
+		var assert = require.New(t)
+		var root = parse(t, `<title key=val>title</title>`)
+		var list = List{root}.Query("title")
+		var data struct {
+			Title string `css:"title"`
+			Key   string `css:"title@key"`
+		}
+
+		err := list.Scan(&data)
+		assert.NoError(err)
+
+		assert.Equal("title", data.Title)
+		assert.Equal("val", data.Key)
 	})
 }
 

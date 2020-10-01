@@ -48,10 +48,9 @@ func (l List) Attr(key string) (string, bool) {
 	return "", false
 }
 
-// Scan scans all items into slice `dst`.
+// Scan scans all items into struct `dst`.
 //
-// If the given `dst` is a struct, the 1st node
-// will be scanned into it.
+// The method scans data from the 1st node.
 func (l List) Scan(dst interface{}) error {
 	for _, n := range l {
 		return scanner.Scan(dst, n, scan.Options{})
