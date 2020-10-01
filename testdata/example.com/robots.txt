@@ -1,0 +1,3 @@
+
+User-Agent: antbot
+Disallow: /search.html
