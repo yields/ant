@@ -8,25 +8,26 @@ import (
 )
 
 func TestMatchers(t *testing.T) {
-	t.Run("regexp", func(t *testing.T) {
-		var assert = require.New(t)
-		var regexp = MatchRegexp(`[a-z]+\.example\.com`)
-
-		u, _ := url.Parse("https://foo.example.com")
-		assert.True(regexp.Match(u), u.String())
-
-		u, _ = url.Parse("https://example.com")
-		assert.False(regexp.Match(u), u.String())
-	})
-
 	t.Run("hostname", func(t *testing.T) {
-		var assert = require.New(t)
-		var host = MatchHostname(`example.com`)
+		var cases = []struct {
+			rawurl  string
+			pattern string
+			match   bool
+		}{
+			{"https://foo.example.com", `example.com`, false},
+			{"https://example.com", `example.com`, true},
+		}
 
-		u, _ := url.Parse("https://foo.example.com")
-		assert.False(host.Match(u), u.String())
+		for _, c := range cases {
+			t.Run(c.rawurl, func(t *testing.T) {
+				var assert = require.New(t)
+				var match = MatchHostname(c.pattern)
 
-		u, _ = url.Parse("https://example.com")
-		assert.True(host.Match(u), u.String())
+				u, err := url.Parse(c.rawurl)
+				assert.NoError(err)
+
+				assert.Equal(c.match, match.Match(u))
+			})
+		}
 	})
 }

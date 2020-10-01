@@ -1,9 +1,7 @@
 package ant
 
 import (
-	"fmt"
 	"net/url"
-	"regexp"
 )
 
 // Matcher represents a URL matcher.
@@ -23,25 +21,9 @@ func (mf MatcherFunc) Match(url *url.URL) bool {
 	return mf(url)
 }
 
-// MatchRegexp returns a new regexp matcher.
-//
-// The matcher returns true for all URLs that match
-// the provided regular expression.
-func MatchRegexp(expr string) MatcherFunc {
-	re, err := regexp.Compile(expr)
-	if err != nil {
-		panic(fmt.Sprintf("ant: match regexp %q - %s", expr, err))
-	}
-
-	return func(url *url.URL) bool {
-		return re.MatchString(url.String())
-	}
-}
-
 // MatchHostname returns a new hostname matcher.
 //
-// The matcher returns true for all URLs that match
-// the provided regular expression.
+// The matcher returns true for all URLs that match the host.
 func MatchHostname(host string) MatcherFunc {
 	return func(url *url.URL) bool {
 		return url.Host == host
