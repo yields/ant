@@ -48,6 +48,22 @@ func TestEngine(t *testing.T) {
 		assert.Equal(expect, visitor.paths)
 	})
 
+	t.Run("run with matcher", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var visitor = &visitor{}
+		var eng = setup(t, visitor)
+		var srv = server(t, "example.com")
+
+		eng.matcher = MatchPattern("*/")
+		err := eng.Run(ctx, srv.URL)
+
+		assert.NoError(err)
+
+		expect := []string{"/"}
+		assert.Equal(expect, visitor.paths)
+	})
+
 	t.Run("run aborts when a scraper errors", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
