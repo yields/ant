@@ -69,6 +69,17 @@ func TestList(t *testing.T) {
 		assert.Equal("title", data.Title)
 		assert.Equal("val", data.Key)
 	})
+
+	t.Run("scan empty", func(t *testing.T) {
+		var assert = require.New(t)
+		var data struct {
+			Title string `css:"title"`
+			Key   string `css:"title@key"`
+		}
+
+		err := List{}.Scan(&data)
+		assert.NoError(err)
+	})
 }
 
 func BenchmarkList(b *testing.B) {
