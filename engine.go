@@ -111,6 +111,8 @@ func (eng *Engine) Run(ctx context.Context, urls ...string) error {
 	var eg, subctx = errgroup.WithContext(ctx)
 
 	// Spawn workers.
+	//
+	// TODO: probably need to spawn as needed instead of pooling.
 	for i := 0; i < eng.concurrency; i++ {
 		eg.Go(func() error {
 			defer eng.queue.Close()
@@ -185,7 +187,8 @@ func (eng *Engine) run(ctx context.Context) error {
 	for {
 		url, err := eng.queue.Dequeue(ctx)
 
-		if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
+		if errors.Is(err, io.EOF) ||
+			errors.Is(err, context.Canceled) {
 			return nil
 		}
 
