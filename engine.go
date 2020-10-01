@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"runtime"
 
-	"github.com/yields/ant/internal/norm"
+	"github.com/yields/ant/internal/normalize"
 	"github.com/yields/ant/internal/robots"
 	"golang.org/x/sync/errgroup"
 )
@@ -156,7 +156,6 @@ func (eng *Engine) Enqueue(ctx context.Context, rawurls ...string) error {
 		if err != nil {
 			return fmt.Errorf("ant: parse url %q - %w", rawurl, err)
 		}
-		norm.NormalizeURL(u)
 		batch = append(batch, u)
 	}
 
@@ -166,7 +165,7 @@ func (eng *Engine) Enqueue(ctx context.Context, rawurls ...string) error {
 // Enqueue enqueues the given parsed urls.
 func (eng *Engine) enqueue(ctx context.Context, batch URLs) error {
 	for j := range batch {
-		norm.NormalizeURL(batch[j])
+		batch[j] = normalize.URL(batch[j])
 	}
 
 	next, err := eng.dedupe(ctx, eng.matches(batch))
