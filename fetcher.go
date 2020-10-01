@@ -31,6 +31,21 @@ var (
 	}
 )
 
+// FetchError represents a fetch error.
+type FetchError struct {
+	URL    *url.URL
+	Status int
+}
+
+// Error implementation.
+func (err FetchError) Error() string {
+	return fmt.Sprintf("ant: fetch %q - %d %s",
+		err.URL,
+		err.Status,
+		http.StatusText(err.Status),
+	)
+}
+
 // Fetch fetches a page from URL.
 func Fetch(ctx context.Context, rawurl string) (*Page, error) {
 	u, err := url.Parse(rawurl)
@@ -75,11 +90,10 @@ func (f *Fetcher) fetch(ctx context.Context, url *URL) (*Page, error) {
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("ant: %s %q - %s",
-			resp.Request.Method,
-			resp.Request.URL,
-			resp.Status,
-		)
+		return nil, &FetchError{
+			URL:    resp.Request.URL,
+			Status: resp.StatusCode,
+		}
 	}
 
 	return &Page{
@@ -93,12 +107,17 @@ func (f *Fetcher) headers() http.Header {
 	var hdr = make(http.Header)
 
 	hdr.Set("Accept", "text/html; charset=UTF-8")
-
-	if ua := f.UserAgent; ua != nil {
-		hdr.Set("User-Agent", ua.String())
-	}
+	hdr.Set("User-Agent", f.userAgent())
 
 	return hdr
+}
+
+// UserAgent returns the user agent to use.
+func (f *Fetcher) userAgent() string {
+	if ua := f.UserAgent; ua != nil {
+		return ua.String()
+	}
+	return UserAgent.String()
 }
 
 // Client returns the client to use.

@@ -82,4 +82,16 @@ func TestMatchers(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("regexp error", func(t *testing.T) {
+		var assert = require.New(t)
+
+		defer func() {
+			err, ok := recover().(string)
+			assert.True(ok, "expected a panic")
+			assert.Contains(err, `ant: regexp "[" - error parsing`)
+		}()
+
+		MatchRegexp(`[`)
+	})
 }
