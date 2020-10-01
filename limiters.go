@@ -2,7 +2,9 @@ package ant
 
 import (
 	"context"
+	"fmt"
 	"net/url"
+	"regexp"
 
 	"github.com/tidwall/match"
 	"golang.org/x/time/rate"
@@ -38,33 +40,48 @@ func (f LimiterFunc) Limit(ctx context.Context, u *url.URL) error {
 // The limiter allows `n` requests for the hostname
 // per second.
 func LimitHostname(n int, name string) LimiterFunc {
-	var limiter = rate.NewLimiter(rate.Limit(n), n)
-
+	l := rate.NewLimiter(rate.Limit(n), n)
 	return func(ctx context.Context, u *url.URL) error {
 		if u.Host == name {
-			return limiter.Wait(ctx)
+			return l.Wait(ctx)
 		}
 		return nil
 	}
 }
 
-// LimitMatch returns a match limiter.
+// LimitPattern returns a pattern limiter.
 //
 // The limiter allows `n` requests for any URLs
 // that match the pattern per second.
 //
 // The provided pattern is matched against a URL
 // that does not contain the query string or the scheme.
-func LimitMatch(n int, pattern string) LimiterFunc {
-	var limiter = rate.NewLimiter(rate.Limit(n), n)
+func LimitPattern(n int, pattern string) LimiterFunc {
+	l := rate.NewLimiter(rate.Limit(n), n)
+	return func(ctx context.Context, u *url.URL) error {
+		if match.Match(u.Host+u.Path, pattern) {
+			return l.Wait(ctx)
+		}
+		return nil
+	}
+}
+
+// LimitRegexp returns a new regexp limiter.
+//
+// The limiter limits all URLs that match the regexp
+// the URL does not contain the scheme and the query parameters.
+func LimitRegexp(n int, expr string) LimiterFunc {
+	l := rate.NewLimiter(rate.Limit(n), n)
+
+	re, err := regexp.Compile(expr)
+	if err != nil {
+		panic(fmt.Sprintf("ant: regexp %q - %s", expr, err))
+	}
 
 	return func(ctx context.Context, u *url.URL) error {
-		var uri = u.Host + u.Path
-
-		if match.Match(pattern, uri) {
-			return limiter.Wait(ctx)
+		if re.MatchString(u.Host + u.Path) {
+			return l.Wait(ctx)
 		}
-
 		return nil
 	}
 }
@@ -73,9 +90,8 @@ func LimitMatch(n int, pattern string) LimiterFunc {
 //
 // The limiter allows `n` requests per second.
 func Limit(n int) LimiterFunc {
-	var limiter = rate.NewLimiter(rate.Limit(n), n)
-
+	l := rate.NewLimiter(rate.Limit(n), n)
 	return func(ctx context.Context, _ *url.URL) error {
-		return limiter.Wait(ctx)
+		return l.Wait(ctx)
 	}
 }
