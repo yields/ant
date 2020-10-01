@@ -4,7 +4,8 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/yields/ant/internal/limit"
+	"github.com/tidwall/match"
+	"golang.org/x/time/rate"
 )
 
 // Limiter controls how many requests can
@@ -24,25 +25,57 @@ type Limiter interface {
 	Limit(ctx context.Context, u *url.URL) error
 }
 
+// LimiterFunc implements a limiter.
+type LimiterFunc func(context.Context, *url.URL) error
+
+// Limit implementation.
+func (f LimiterFunc) Limit(ctx context.Context, u *url.URL) error {
+	return f(ctx, u)
+}
+
 // LimitHostname returns a hostname limiter.
 //
 // The limiter allows `n` requests for the hostname
 // per second.
-func LimitHostname(name string, n int) Limiter {
-	return limit.ByHostname(name, n)
+func LimitHostname(n int, name string) LimiterFunc {
+	var limiter = rate.NewLimiter(rate.Limit(n), n)
+
+	return func(ctx context.Context, u *url.URL) error {
+		if u.Host == name {
+			return limiter.Wait(ctx)
+		}
+		return nil
+	}
 }
 
 // LimitMatch returns a match limiter.
 //
 // The limiter allows `n` requests for any URLs
 // that match the pattern per second.
-func LimitMatch(pattern string, n int) Limiter {
-	return limit.ByMatch(pattern, n)
+//
+// The provided pattern is matched against a URL
+// that does not contain the query string or the scheme.
+func LimitMatch(n int, pattern string) LimiterFunc {
+	var limiter = rate.NewLimiter(rate.Limit(n), n)
+
+	return func(ctx context.Context, u *url.URL) error {
+		var uri = u.Host + u.Path
+
+		if match.Match(pattern, uri) {
+			return limiter.Wait(ctx)
+		}
+
+		return nil
+	}
 }
 
 // Limit returns a new limiter.
 //
 // The limiter allows `n` requests per second.
-func Limit(n int) Limiter {
-	return limit.New(n)
+func Limit(n int) LimiterFunc {
+	var limiter = rate.NewLimiter(rate.Limit(n), n)
+
+	return func(ctx context.Context, _ *url.URL) error {
+		return limiter.Wait(ctx)
+	}
 }
