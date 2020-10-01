@@ -51,6 +51,15 @@ type EngineConfig struct {
 	// If nil, all URLs are queued.
 	Matcher Matcher
 
+	// Impolite skips any robots.txt checking.
+	//
+	// Note that it does not affect any configured
+	// ratelimiters or matchers.
+	//
+	// By default the engine checks robots.txt, it uses
+	// the default ant.UserAgent.
+	Impolite bool
+
 	// Concurrency controls the amount of goroutines
 	// the engine starts.
 	//
@@ -71,6 +80,7 @@ type Engine struct {
 	matcher     Matcher
 	limiter     Limiter
 	robots      *robots.Cache
+	impolite    bool
 	concurrency int
 }
 
@@ -104,6 +114,7 @@ func NewEngine(c EngineConfig) (*Engine, error) {
 		matcher:     c.Matcher,
 		limiter:     c.Limiter,
 		robots:      robots.NewCache(1000),
+		impolite:    c.Impolite,
 		concurrency: c.Concurrency,
 	}, nil
 }
@@ -156,6 +167,13 @@ func (eng *Engine) Enqueue(ctx context.Context, rawurls ...string) error {
 		if err != nil {
 			return fmt.Errorf("ant: parse url %q - %w", rawurl, err)
 		}
+
+		switch u.Scheme {
+		case "https", "http":
+		default:
+			return fmt.Errorf("ant: cannot enqueue invalid URL %q", u)
+		}
+
 		batch = append(batch, u)
 	}
 
@@ -204,15 +222,17 @@ func (eng *Engine) process(ctx context.Context, url *URL) error {
 	defer eng.queue.Done(url)
 
 	// Check robots.txt.
-	allowed, err := eng.robots.Allowed(ctx, robots.Request{
-		URL:       url,
-		UserAgent: "ant",
-	})
-	if err != nil {
-		return err
-	}
-	if !allowed {
-		return nil
+	if !eng.impolite {
+		allowed, err := eng.robots.Allowed(ctx, robots.Request{
+			URL:       url,
+			UserAgent: UserAgent.String(),
+		})
+		if err != nil {
+			return err
+		}
+		if !allowed {
+			return nil
+		}
 	}
 
 	// Potential limits.
@@ -274,9 +294,13 @@ func (eng *Engine) limit(ctx context.Context, url *URL) error {
 		}
 	}
 
+	if eng.impolite {
+		return nil
+	}
+
 	err := eng.robots.Wait(ctx, robots.Request{
 		URL:       url,
-		UserAgent: "ant",
+		UserAgent: UserAgent.String(),
 	})
 	if err != nil {
 		return fmt.Errorf("ant: robots wait - %w", err)
