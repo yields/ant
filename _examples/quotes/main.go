@@ -40,7 +40,8 @@ func (s *scraper) Scrape(ctx context.Context, p *ant.Page) (ant.URLs, error) {
 
 	atomic.AddUint64(&s.quotes, uint64(len(items.Quotes)))
 	atomic.AddUint64(&s.pages, 1)
-	return p.URLs(), nil
+
+	return p.Next(`li.next > a`)
 }
 
 func main() {
