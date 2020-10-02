@@ -77,6 +77,8 @@ type Client interface {
 //  - Transport.MaxIdleConns        => infinity
 //  - Transport.MaxIdleConnsPerHost => 1,000
 //
+// Note that this default client is used for all robots.txt
+// requests when they're enabled.
 var DefaultClient = &http.Client{
 	Transport: &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
