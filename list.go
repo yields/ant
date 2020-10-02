@@ -45,6 +45,27 @@ func (l List) Is(selector string) (matched bool) {
 	return
 }
 
+// At returns a list that contains the node at index i.
+//
+// If a negative index is provided the method returns
+// node from the end of the list.
+func (l List) At(i int) List {
+	if i >= 0 {
+		if len(l) > i {
+			return List{l[i]}
+		}
+		return List{}
+	}
+
+	if i = len(l) + i; i >= 0 {
+		if len(l) > i {
+			return List{l[i]}
+		}
+	}
+
+	return List{}
+}
+
 // Text returns inner text of the first node..
 func (l List) Text() string {
 	for _, n := range l {

@@ -30,6 +30,27 @@ func TestList(t *testing.T) {
 		assert.False(list.Is("div"))
 	})
 
+	t.Run("at", func(t *testing.T) {
+		var assert = require.New(t)
+		var root = parse(t, `
+	  	<li>1</li>
+	  	<li>2</li>
+	  	<li>3</li>
+	  `)
+
+		lis := List{root}.Query(`li`)
+
+		assert.Equal("1", lis.At(0).Text())
+		assert.Equal("2", lis.At(1).Text())
+		assert.Equal("3", lis.At(2).Text())
+		assert.Equal("", lis.At(3).Text())
+
+		assert.Equal("3", lis.At(-1).Text())
+		assert.Equal("2", lis.At(-2).Text())
+		assert.Equal("1", lis.At(-3).Text())
+		assert.Equal("", lis.At(-4).Text())
+	})
+
 	t.Run("text", func(t *testing.T) {
 		var assert = require.New(t)
 		var root = parse(t, `<title>title</title>`)
