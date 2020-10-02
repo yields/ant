@@ -113,7 +113,7 @@ func NewEngine(c EngineConfig) (*Engine, error) {
 		queue:       c.Queue,
 		matcher:     c.Matcher,
 		limiter:     c.Limiter,
-		robots:      robots.NewCache(1000),
+		robots:      robots.NewCache(DefaultClient, 1000),
 		impolite:    c.Impolite,
 		concurrency: c.Concurrency,
 	}, nil

@@ -54,18 +54,19 @@ func (s *Site) test(path, ua string) bool {
 // domain is seen the cache will fetch the robots.txt
 // parse it and add it to the cache.
 type Cache struct {
-	lru *agecache.Cache
+	lru    *agecache.Cache
+	client *http.Client
 }
 
 // NewCache returns a new cache.
-func NewCache(capacity int) *Cache {
+func NewCache(c *http.Client, capacity int) *Cache {
 	lru := agecache.New(agecache.Config{
 		Capacity:           capacity,
 		MaxAge:             1 * time.Hour,
 		ExpirationType:     agecache.PassiveExpration,
 		ExpirationInterval: 1 * time.Minute,
 	})
-	return &Cache{lru: lru}
+	return &Cache{lru: lru, client: c}
 }
 
 // Allowed returns true if the request is allowed.
@@ -131,7 +132,7 @@ func (c *Cache) lookup(ctx context.Context, url *url.URL) (*Site, error) {
 		return nil, fmt.Errorf("robots: new request - %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("robots: GET %q - %w", rawurl, err)
 	}

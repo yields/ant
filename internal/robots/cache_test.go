@@ -15,7 +15,7 @@ func TestCache(t *testing.T) {
 	t.Run("allowed", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
-		var cache = NewCache(50)
+		var cache = NewCache(http.DefaultClient, 50)
 		var url = serve(t, "testdata/robots.txt")
 
 		req := request(t, url+"/foo", "ant")
@@ -28,7 +28,7 @@ func TestCache(t *testing.T) {
 	t.Run("allowed cancel", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
-		var cache = NewCache(50)
+		var cache = NewCache(http.DefaultClient, 50)
 		var url = serve(t, "testdata/robots.txt")
 
 		ctx, cancel := context.WithCancel(ctx)
@@ -44,7 +44,7 @@ func TestCache(t *testing.T) {
 	t.Run("disallow", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
-		var cache = NewCache(50)
+		var cache = NewCache(http.DefaultClient, 50)
 		var url = serve(t, "testdata/robots.txt")
 
 		req := request(t, url+"/search", "ant")
@@ -57,7 +57,7 @@ func TestCache(t *testing.T) {
 	t.Run("delay", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
-		var cache = NewCache(50)
+		var cache = NewCache(http.DefaultClient, 50)
 		var url = serve(t, "testdata/robots.txt")
 
 		req := request(t, url, "badbot")
@@ -69,7 +69,7 @@ func TestCache(t *testing.T) {
 	t.Run("delay cancel", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
-		var cache = NewCache(50)
+		var cache = NewCache(http.DefaultClient, 50)
 		var url = serve(t, "testdata/robots.txt")
 
 		ctx, cancel := context.WithCancel(ctx)
@@ -86,7 +86,7 @@ func TestCache(t *testing.T) {
 func BenchmarkCache(b *testing.B) {
 	b.Run("allowed", func(b *testing.B) {
 		var ctx = context.Background()
-		var cache = NewCache(50)
+		var cache = NewCache(http.DefaultClient, 50)
 		var url = serve(b, "testdata/robots.txt")
 		var req = request(b, url+"/foo", "ant")
 
