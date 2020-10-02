@@ -1,6 +1,8 @@
 package ant
 
 import (
+	"strings"
+
 	"github.com/yields/ant/internal/scan"
 	"golang.org/x/net/html"
 )
@@ -68,10 +70,13 @@ func (l List) At(i int) List {
 
 // Text returns inner text of the first node..
 func (l List) Text() string {
+	var b strings.Builder
+
 	for _, n := range l {
-		return scan.Text(n)
+		b.WriteString(scan.Text(n))
 	}
-	return ""
+
+	return b.String()
 }
 
 // Attr returns the attribute value of key of the first node.
