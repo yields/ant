@@ -52,10 +52,7 @@ func (p *Page) Query(selector string) List {
 //
 // The method returns an empty string if the node is not found.
 func (p *Page) Text(selector string) string {
-	for _, n := range p.Query(selector) {
-		return scan.Text(n)
-	}
-	return ""
+	return p.Query(selector).Text()
 }
 
 // URLs returns all URLs on the page.

@@ -20,12 +20,51 @@ func TestList(t *testing.T) {
 		assert.Equal("title", list[0].DataAtom.String())
 	})
 
+	t.Run("is", func(t *testing.T) {
+		var assert = require.New(t)
+		var root = parse(t, `<a class="item">anchor</a><li class="item">item</li>`)
+		var list = List{root}.Query(`.item`)
+
+		assert.True(list.Is("li"))
+		assert.True(list.Is("a"))
+		assert.False(list.Is("div"))
+	})
+
+	t.Run("at", func(t *testing.T) {
+		var assert = require.New(t)
+		var root = parse(t, `
+	  	<li>1</li>
+	  	<li>2</li>
+	  	<li>3</li>
+	  `)
+
+		lis := List{root}.Query(`li`)
+
+		assert.Equal("1", lis.At(0).Text())
+		assert.Equal("2", lis.At(1).Text())
+		assert.Equal("3", lis.At(2).Text())
+		assert.Equal("", lis.At(3).Text())
+
+		assert.Equal("3", lis.At(-1).Text())
+		assert.Equal("2", lis.At(-2).Text())
+		assert.Equal("1", lis.At(-3).Text())
+		assert.Equal("", lis.At(-4).Text())
+	})
+
 	t.Run("text", func(t *testing.T) {
 		var assert = require.New(t)
 		var root = parse(t, `<title>title</title>`)
 		var list = List{root}.Query("title")
 
 		assert.Equal("title", list.Text())
+	})
+
+	t.Run("text multi", func(t *testing.T) {
+		var assert = require.New(t)
+		var root = parse(t, `<li>a</li><li><a>b</a></li>`)
+		var list = List{root}.Query("li")
+
+		assert.Equal("ab", list.Text())
 	})
 
 	t.Run("text empty", func(t *testing.T) {

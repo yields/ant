@@ -1,6 +1,8 @@
 package ant
 
 import (
+	"strings"
+
 	"github.com/yields/ant/internal/scan"
 	"golang.org/x/net/html"
 )
@@ -32,12 +34,49 @@ func (l List) Query(selector string) List {
 	return ret
 }
 
+// Is returns true if any of the nodes matches selector.
+func (l List) Is(selector string) (matched bool) {
+	if sel := selectors.compile(selector); sel != nil {
+		for _, n := range l {
+			if sel.Match(n) {
+				matched = true
+				break
+			}
+		}
+	}
+	return
+}
+
+// At returns a list that contains the node at index i.
+//
+// If a negative index is provided the method returns
+// node from the end of the list.
+func (l List) At(i int) List {
+	if i >= 0 {
+		if len(l) > i {
+			return List{l[i]}
+		}
+		return List{}
+	}
+
+	if i = len(l) + i; i >= 0 {
+		if len(l) > i {
+			return List{l[i]}
+		}
+	}
+
+	return List{}
+}
+
 // Text returns inner text of the first node..
 func (l List) Text() string {
+	var b strings.Builder
+
 	for _, n := range l {
-		return scan.Text(n)
+		b.WriteString(scan.Text(n))
 	}
-	return ""
+
+	return b.String()
 }
 
 // Attr returns the attribute value of key of the first node.
