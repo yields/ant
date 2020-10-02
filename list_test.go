@@ -20,6 +20,16 @@ func TestList(t *testing.T) {
 		assert.Equal("title", list[0].DataAtom.String())
 	})
 
+	t.Run("is", func(t *testing.T) {
+		var assert = require.New(t)
+		var root = parse(t, `<a class="item">anchor</a><li class="item">item</li>`)
+		var list = List{root}.Query(`.item`)
+
+		assert.True(list.Is("li"))
+		assert.True(list.Is("a"))
+		assert.False(list.Is("div"))
+	})
+
 	t.Run("text", func(t *testing.T) {
 		var assert = require.New(t)
 		var root = parse(t, `<title>title</title>`)

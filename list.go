@@ -32,6 +32,19 @@ func (l List) Query(selector string) List {
 	return ret
 }
 
+// Is returns true if any of the nodes matches selector.
+func (l List) Is(selector string) (matched bool) {
+	if sel := selectors.compile(selector); sel != nil {
+		for _, n := range l {
+			if sel.Match(n) {
+				matched = true
+				break
+			}
+		}
+	}
+	return
+}
+
 // Text returns inner text of the first node..
 func (l List) Text() string {
 	for _, n := range l {
