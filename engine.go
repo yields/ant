@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"runtime"
 
 	"github.com/yields/ant/internal/normalize"
 	"github.com/yields/ant/internal/robots"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 // EngineConfig configures the engine.
@@ -60,28 +60,36 @@ type EngineConfig struct {
 	// the default ant.UserAgent.
 	Impolite bool
 
-	// Concurrency controls the amount of goroutines
-	// the engine starts.
+	// Workers specifies the amount of workers to use.
 	//
-	// Every goroutine is in charge of fetching a page
-	// calling the scraper and enqueueing the urls
-	// the scraper has returned.
+	// Every worker the engine start consumes URLs from the queue
+	// and starts a goroutine for each URL.
 	//
-	// If <= 0, it defaults to runtime.GOMAXPROCS.
+	// If <= 0, defaults to 1.
+	Workers int
+
+	// Concurrency is the maximum amount of URLs to process
+	// at any given time.
+	//
+	// The engine uses a global semaphore to limit the amount
+	// of goroutines started by the workers.
+	//
+	// If <= 0, there's no limit.
 	Concurrency int
 }
 
 // Engine implements web crawler engine.
 type Engine struct {
-	deduper     Deduper
-	scraper     Scraper
-	fetcher     *Fetcher
-	queue       Queue
-	matcher     Matcher
-	limiter     Limiter
-	robots      *robots.Cache
-	impolite    bool
-	concurrency int
+	deduper  Deduper
+	scraper  Scraper
+	fetcher  *Fetcher
+	queue    Queue
+	matcher  Matcher
+	limiter  Limiter
+	robots   *robots.Cache
+	impolite bool
+	workers  int
+	sema     *semaphore.Weighted
 }
 
 // NewEngine returns a new engine.
@@ -98,24 +106,30 @@ func NewEngine(c EngineConfig) (*Engine, error) {
 		c.Fetcher = &Fetcher{}
 	}
 
-	if c.Concurrency <= 0 {
-		c.Concurrency = runtime.GOMAXPROCS(-1)
+	if c.Workers <= 0 {
+		c.Workers = 1
 	}
 
 	if c.Queue == nil {
-		c.Queue = MemoryQueue(c.Concurrency)
+		c.Queue = MemoryQueue(c.Workers)
+	}
+
+	var sema *semaphore.Weighted
+	if n := int64(c.Concurrency); n > 0 {
+		sema = semaphore.NewWeighted(n)
 	}
 
 	return &Engine{
-		scraper:     c.Scraper,
-		deduper:     c.Deduper,
-		fetcher:     c.Fetcher,
-		queue:       c.Queue,
-		matcher:     c.Matcher,
-		limiter:     c.Limiter,
-		robots:      robots.NewCache(DefaultClient, 1000),
-		impolite:    c.Impolite,
-		concurrency: c.Concurrency,
+		scraper:  c.Scraper,
+		deduper:  c.Deduper,
+		fetcher:  c.Fetcher,
+		queue:    c.Queue,
+		matcher:  c.Matcher,
+		limiter:  c.Limiter,
+		robots:   robots.NewCache(DefaultClient, 1000),
+		impolite: c.Impolite,
+		workers:  c.Workers,
+		sema:     sema,
 	}, nil
 }
 
@@ -124,9 +138,7 @@ func (eng *Engine) Run(ctx context.Context, urls ...string) error {
 	var eg, subctx = errgroup.WithContext(ctx)
 
 	// Spawn workers.
-	//
-	// TODO: probably need to spawn as needed instead of pooling.
-	for i := 0; i < eng.concurrency; i++ {
+	for i := 0; i < eng.workers; i++ {
 		eg.Go(func() error {
 			defer eng.queue.Close()
 			return eng.run(subctx)
@@ -203,17 +215,27 @@ func (eng *Engine) enqueue(ctx context.Context, batch URLs) error {
 // The worker is in charge of fetching a url from
 // the queue, creating a page and then calling the scraper.
 func (eng *Engine) run(ctx context.Context) error {
+	eg, subctx := errgroup.WithContext(ctx)
 	for {
 		url, err := eng.queue.Dequeue(ctx)
 
 		if errors.Is(err, io.EOF) ||
 			errors.Is(err, context.Canceled) {
-			return nil
+			return eg.Wait()
 		}
 
-		if err := eng.process(ctx, url); err != nil {
-			return err
+		if eng.sema != nil {
+			if err := eng.sema.Acquire(ctx, 1); err != nil {
+				return err
+			}
 		}
+
+		eg.Go(func() error {
+			if eng.sema != nil {
+				defer eng.sema.Release(1)
+			}
+			return eng.process(subctx, url)
+		})
 	}
 }
 
