@@ -11,10 +11,10 @@ test:
 	@go test --cover --timeout 5s --race ./...
 
 test.cdp:
-	@GOOS=linux GOARCH=amd64 go test -c ./antcdp
-	@mv antcdp.test antcdp
+	@GOOS=linux GOARCH=amd64 go test -c ./exp/antcdp
+	@mv antcdp.test exp/antcdp
 	@docker run --rm \
-		--volume=$(PWD)/antcdp:/antcdp \
+		--volume=$(PWD)/exp/antcdp:/antcdp \
 		--entrypoint=/antcdp/antcdp.test \
 		--workdir=/antcdp \
 		--env=HEADLESS_SHELL=/headless-shell/headless-shell \
@@ -41,4 +41,4 @@ cover:
 	@go tool cover --html=test.cover
 
 clean:
-	rm -fr *.test *.prof *.cover *.trace antcdp/*.test
+	rm -fr *.test *.prof *.cover *.trace exp/antcdp/*.test

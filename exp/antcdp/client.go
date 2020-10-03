@@ -1,4 +1,5 @@
-// Package antcdp implements an ant client that uses CDP.
+// Package antcdp is an experimental package that implements an `ant.Client`
+// that performs HTTP requests using chrome and returns a rendered response.
 //
 // Usage:
 //
