@@ -34,7 +34,7 @@ func TestFetcher(t *testing.T) {
 		assert.Equal("Example", p.Text("title"))
 	})
 
-	t.Run("4xx", func(t *testing.T) {
+	t.Run("400", func(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
 		var fetcher = &Fetcher{}
@@ -44,6 +44,18 @@ func TestFetcher(t *testing.T) {
 
 		assert.Error(err)
 		assert.Contains(err.Error(), `400 Bad Request`)
+	})
+
+	t.Run("404", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var fetcher = &Fetcher{}
+		var url = serve(t, respond(404, ""))
+
+		p, err := fetcher.Fetch(ctx, url)
+
+		assert.NoError(err)
+		assert.Nil(p)
 	})
 
 	t.Run("fetch error", func(t *testing.T) {

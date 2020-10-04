@@ -109,12 +109,17 @@ func (f *Fetcher) Fetch(ctx context.Context, url *URL) (*Page, error) {
 		}
 
 		f.discard(resp)
-
 		if isTemporary(err) {
 			if err := f.backoff(ctx, attempt); err != nil {
 				return nil, err
 			}
 			continue
+		}
+
+		if err, ok := err.(*FetchError); ok {
+			if err.Status == 404 {
+				return nil, nil
+			}
 		}
 
 		return nil, err
