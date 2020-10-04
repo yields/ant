@@ -32,6 +32,18 @@ var (
 		Client:    DefaultClient,
 		UserAgent: UserAgent,
 	}
+
+	// MinBackoff to use when the fetcher retries.
+	//
+	// Must be less than MaxBackoff, otherwise
+	// the fetcher returns an error.
+	minBackoff = 50 * time.Millisecond
+
+	// MaxBackoff to use when the fetcher retries.
+	//
+	// Must be greater than MinBackoff, otherwise the
+	// fetcher returns an error.
+	maxBackoff = 1 * time.Second
 )
 
 // FetchError represents a fetch error.
@@ -47,6 +59,14 @@ func (err FetchError) Error() string {
 		err.Status,
 		http.StatusText(err.Status),
 	)
+}
+
+// Temporary returns true if the HTTP status code
+// generally means the error is temporary.
+func (err FetchError) Temporary() bool {
+	return err.Status == 503 || // Service Unavailable.
+		err.Status == 504 || // Gateway Timeout.
+		err.Status == 429 // Too many requests.
 }
 
 // Fetch fetches a page from URL.
@@ -100,7 +120,7 @@ func (f *Fetcher) Fetch(ctx context.Context, url *URL) (*Page, error) {
 	var err error
 
 	for {
-		if attempt > maxAttempts {
+		if attempt++; attempt > maxAttempts {
 			return nil, err
 		}
 
@@ -150,7 +170,7 @@ func (f *Fetcher) fetch(ctx context.Context, url *URL) (*http.Response, error) {
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, &FetchError{
+		return resp, &FetchError{
 			URL:    resp.Request.URL,
 			Status: resp.StatusCode,
 		}
@@ -205,9 +225,13 @@ func (f *Fetcher) client() Client {
 //
 // TODO: configurable backoff duration, jitter...?
 func (f *Fetcher) backoff(ctx context.Context, attempt int) error {
-	var min = 50 * time.Millisecond
-	var max = 1 * time.Second
+	var min = minBackoff
+	var max = maxBackoff
 	var dur = time.Duration(attempt*attempt) * min
+
+	if min >= max {
+		return fmt.Errorf("ant: min backoff must be greater than max backoff")
+	}
 
 	if dur > max {
 		dur = max

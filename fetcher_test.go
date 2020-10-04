@@ -5,12 +5,17 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestFetcher(t *testing.T) {
+	minBackoff = time.Nanosecond
+	maxBackoff = time.Millisecond
+
 	t.Run("fetch bad URL", func(t *testing.T) {
 		var assert = require.New(t)
 		var ctx = context.Background()
@@ -70,6 +75,39 @@ func TestFetcher(t *testing.T) {
 		e, ok := err.(*FetchError)
 		assert.True(ok, "expected a fetch error")
 		assert.Equal(400, e.Status)
+	})
+
+	t.Run("fetch retry", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var fetcher = &Fetcher{}
+		var reqs uint64
+		var url = serve(t, func(w http.ResponseWriter) {
+			if atomic.AddUint64(&reqs, 1) == 3 {
+				w.WriteHeader(200)
+				return
+			}
+			w.WriteHeader(503)
+		})
+
+		p, err := fetcher.Fetch(ctx, url)
+		assert.NoError(err)
+		assert.NotNil(p)
+		assert.NoError(p.close())
+		assert.Equal(uint64(3), reqs)
+	})
+
+	t.Run("fetch max attempts reached", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var fetcher = &Fetcher{}
+		var url = serve(t, func(w http.ResponseWriter) {
+			w.WriteHeader(503)
+		})
+
+		_, err := fetcher.Fetch(ctx, url)
+		assert.Error(err)
+		assert.Contains(err.Error(), `503`)
 	})
 
 	t.Run("sends headers", func(t *testing.T) {
