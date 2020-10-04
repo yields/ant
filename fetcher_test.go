@@ -28,7 +28,7 @@ func TestFetcher(t *testing.T) {
 		var ctx = context.Background()
 		var u = parseURL(t, srv.URL)
 
-		p, err := fetcher.fetch(ctx, u)
+		p, err := fetcher.Fetch(ctx, u)
 
 		assert.NoError(err)
 		assert.Equal("Example", p.Text("title"))
@@ -38,9 +38,9 @@ func TestFetcher(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
 		var fetcher = &Fetcher{}
-		var url = serve(t, 400, "")
+		var url = serve(t, respond(400, ""))
 
-		_, err := fetcher.fetch(ctx, url)
+		_, err := fetcher.Fetch(ctx, url)
 
 		assert.Error(err)
 		assert.Contains(err.Error(), `400 Bad Request`)
@@ -50,9 +50,9 @@ func TestFetcher(t *testing.T) {
 		var ctx = context.Background()
 		var assert = require.New(t)
 		var fetcher = &Fetcher{}
-		var url = serve(t, 400, "")
+		var url = serve(t, respond(400, ""))
 
-		_, err := fetcher.fetch(ctx, url)
+		_, err := fetcher.Fetch(ctx, url)
 		assert.Error(err)
 
 		e, ok := err.(*FetchError)
@@ -67,7 +67,7 @@ func TestFetcher(t *testing.T) {
 		var req http.Request
 		var url = record(t, &req)
 
-		_, err := fetcher.fetch(ctx, url)
+		_, err := fetcher.Fetch(ctx, url)
 		assert.NoError(err)
 
 		assert.Equal("text/html; charset=UTF-8", req.Header.Get("Accept"))
@@ -82,7 +82,7 @@ func TestFetcher(t *testing.T) {
 		var url = record(t, &req)
 
 		fetcher.UserAgent = StaticAgent("foo")
-		_, err := fetcher.fetch(ctx, url)
+		_, err := fetcher.Fetch(ctx, url)
 		assert.NoError(err)
 
 		assert.Equal("text/html; charset=UTF-8", req.Header.Get("Accept"))
@@ -90,12 +90,18 @@ func TestFetcher(t *testing.T) {
 	})
 }
 
-func serve(t testing.TB, status int, body string) *URL {
+func respond(status int, body string) func(http.ResponseWriter) {
+	return func(w http.ResponseWriter) {
+		w.WriteHeader(status)
+		io.WriteString(w, body)
+	}
+}
+
+func serve(t testing.TB, f func(w http.ResponseWriter)) *URL {
 	t.Helper()
 
 	serve := func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(status)
-		io.WriteString(w, body)
+		f(w)
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(serve))
