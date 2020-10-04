@@ -312,7 +312,7 @@ func (eng *Engine) dedupe(ctx context.Context, urls URLs) (URLs, error) {
 func (eng *Engine) limit(ctx context.Context, url *URL) error {
 	if eng.limiter != nil {
 		if err := eng.limiter.Limit(ctx, url); err != nil {
-			return err
+			return fmt.Errorf("limit %q - %w", url, err)
 		}
 	}
 

@@ -114,6 +114,64 @@ func TestEngine(t *testing.T) {
 		assert.Error(err)
 		assert.Contains(err.Error(), `connection refused`)
 	})
+
+	t.Run("dedupe error", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var eng = setup(t, &visitor{})
+
+		eng.deduper = dedupeError{}
+		err := eng.Run(ctx, "http://:9999")
+
+		assert.Error(err)
+		assert.EqualError(err, `ant: enqueue - ant: dedupe - boom`)
+	})
+
+	t.Run("limit error", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var eng = setup(t, &visitor{})
+		var srv = server(t, "example.com")
+
+		eng.limiter = LimiterFunc(func(_ context.Context, u *URL) error {
+			t.Logf("limit")
+			return errors.New("boom")
+		})
+		err := eng.Run(ctx, srv.URL)
+
+		assert.Error(err)
+		assert.Contains(err.Error(), `limit`)
+	})
+
+	t.Run("enqueue", func(t *testing.T) {
+		var cases = []struct {
+			title string
+			input string
+			error bool
+		}{
+			{"https", "https://example.com", false},
+			{"http", "http://example.com", false},
+			{"http", "\x00", true},
+			{"websockets", "wss://example.com", true},
+		}
+
+		for _, c := range cases {
+			t.Run(c.title, func(t *testing.T) {
+				var assert = require.New(t)
+				var eng = setup(t, &visitor{})
+				var ctx = context.Background()
+
+				err := eng.Enqueue(ctx, c.input)
+
+				if c.error {
+					assert.Error(err)
+					return
+				}
+
+				assert.NoError(err)
+			})
+		}
+	})
 }
 
 func BenchmarkEngine(b *testing.B) {
@@ -193,4 +251,10 @@ func server(t testing.TB, dir string) *httptest.Server {
 	})
 
 	return srv
+}
+
+type dedupeError struct{}
+
+func (d dedupeError) Dedupe(ctx context.Context, urls URLs) (URLs, error) {
+	return nil, errors.New("boom")
 }
