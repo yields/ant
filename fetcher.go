@@ -165,8 +165,9 @@ func (f *Fetcher) fetch(ctx context.Context, url *URL) (*http.Response, error) {
 	}
 
 	resp, err := client.Do(req)
+
 	if err != nil {
-		return nil, fmt.Errorf("ant: %s %q - %w", req.Method, req.URL, err)
+		return resp, fmt.Errorf("ant: %s %q - %w", req.Method, req.URL, err)
 	}
 
 	if resp.StatusCode >= 400 {
