@@ -1,6 +1,7 @@
 package ant
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -25,7 +26,9 @@ type Page struct {
 // errored, the method is a no-op.
 func (p *Page) parse() error {
 	p.once.Do(func() {
-		p.root, p.err = html.Parse(p.body)
+		if p.root, p.err = html.Parse(p.body); p.err != nil {
+			p.err = fmt.Errorf("ant: parse html %q - %w", p.URL, p.err)
+		}
 		p.close()
 	})
 	return p.err

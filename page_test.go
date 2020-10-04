@@ -1,6 +1,7 @@
 package ant
 
 import (
+	"io"
 	"io/ioutil"
 	"net/url"
 	"strings"
@@ -47,6 +48,20 @@ func TestPage(t *testing.T) {
 		assert.Equal("ant", repo.Name)
 		assert.Equal(9, repo.Stars)
 	})
+
+	t.Run("scan invalid HTML", func(t *testing.T) {
+		var u, _ = url.Parse("https://example.com")
+		var page = &Page{URL: u, body: readerError{}}
+		var assert = require.New(t)
+		var repo struct {
+			Name  string `css:"name"`
+			Stars int    `css:"stars"`
+		}
+
+		err := page.Scan(&repo)
+		assert.Error(err)
+		assert.EqualError(err, `ant: parse html "https://example.com" - short buffer`)
+	})
 }
 
 func BenchmarkPage(b *testing.B) {
@@ -85,4 +100,15 @@ func makePage(t testing.TB, buf string) *Page {
 		URL:  u,
 		body: ioutil.NopCloser(r),
 	}
+}
+
+type readerError struct{}
+
+func (readerError) Read(p []byte) (n int, err error) {
+	err = io.ErrShortBuffer
+	return
+}
+
+func (readerError) Close() error {
+	return nil
 }
