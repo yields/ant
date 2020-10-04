@@ -9,6 +9,8 @@ import (
 )
 
 // Matcher represents a URL matcher.
+//
+// A matcher must be safe to use from multiple goroutines.
 type Matcher interface {
 	// Match returns true if the URL matches.
 	//

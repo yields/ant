@@ -8,7 +8,7 @@ import (
 
 // Queue represents a URL queue.
 //
-// The queue must be thread-safe.
+// A queue must be safe to use from multiple goroutines.
 type Queue interface {
 	// Enqueue enqueues the given set of URLs.
 	//
@@ -95,16 +95,14 @@ func (mq *memoryQueue) Dequeue(ctx context.Context) (*URL, error) {
 	mq.cond.L.Lock()
 	defer mq.cond.L.Unlock()
 
-	for len(mq.pending) == 0 && (!mq.stopped && ctx.Err() == nil) {
+	for len(mq.pending) == 0 {
+		if mq.stopped {
+			return nil, io.EOF
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		mq.cond.Wait()
-	}
-
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-
-	if mq.stopped {
-		return nil, io.EOF
 	}
 
 	url := mq.pending[0]
@@ -135,6 +133,5 @@ func (mq *memoryQueue) Close() error {
 	mq.stopped = true
 	mq.pending = mq.pending[:0]
 	mq.cond.Broadcast()
-
 	return nil
 }

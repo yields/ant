@@ -8,6 +8,8 @@ import (
 )
 
 // Deduper represents a URL de-duplicator.
+//
+// A deduper must be safe to use from multiple goroutines.
 type Deduper interface {
 	// Dedupe de-duplicates the given URLs.
 	//

@@ -10,12 +10,13 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// Limiter controls how many requests can
-// be made by the engine.
+// Limiter controls how many requests can be made by the engine.
 //
 // A limiter receives a context and a URL and
 // blocks until a request is allowed to happen
 // or returns an error if the context is canceled.
+//
+// A limiter must be safe to use from multiple goroutines.
 type Limiter interface {
 	// Limit blocks until a request is allowed to happen.
 	//

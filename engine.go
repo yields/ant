@@ -280,12 +280,12 @@ func (eng *Engine) process(ctx context.Context, url *URL) error {
 func (eng *Engine) scrape(ctx context.Context, url *URL) (URLs, error) {
 	page, err := eng.fetcher.fetch(ctx, url)
 
-	if skip(err) {
-		return nil, nil
-	}
-
 	if err != nil {
 		return nil, fmt.Errorf("ant: fetch %q - %w", url, err)
+	}
+
+	if page == nil {
+		return nil, nil
 	}
 
 	defer page.close()
