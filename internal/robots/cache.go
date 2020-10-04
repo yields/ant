@@ -84,6 +84,10 @@ func (c *Cache) Allowed(ctx context.Context, req Request) (bool, error) {
 	var path = req.URL.Path
 	var ua = req.userAgent()
 
+	if len(path) > 0 && path[0] != '/' {
+		path = "/" + path
+	}
+
 	site, err := c.lookup(ctx, req.URL)
 	if err != nil {
 		return false, err
