@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sync"
 )
 
 // JSON returns a new JSON scraper.
@@ -44,6 +45,7 @@ type jsonscraper struct {
 	typ       reflect.Type
 	enc       *json.Encoder
 	selectors []string
+	lock      sync.Mutex
 }
 
 // Scrape implementation.
@@ -54,7 +56,7 @@ func (j *jsonscraper) Scrape(ctx context.Context, p *Page) (URLs, error) {
 		return nil, err
 	}
 
-	if err := j.enc.Encode(v.Interface()); err != nil {
+	if err := j.encode(v.Interface()); err != nil {
 		return nil, fmt.Errorf("ant: json encode %s - %w", j.typ, err)
 	}
 
@@ -71,4 +73,11 @@ func (j *jsonscraper) Scrape(ctx context.Context, p *Page) (URLs, error) {
 	}
 
 	return p.URLs(), nil
+}
+
+// Encode encodes the given v.
+func (j *jsonscraper) encode(v interface{}) error {
+	j.lock.Lock()
+	defer j.lock.Unlock()
+	return j.enc.Encode(v)
 }
