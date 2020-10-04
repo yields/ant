@@ -278,7 +278,7 @@ func (eng *Engine) process(ctx context.Context, url *URL) error {
 
 // Scrape scrapes the given URL and returns the next URLs.
 func (eng *Engine) scrape(ctx context.Context, url *URL) (URLs, error) {
-	page, err := eng.fetcher.fetch(ctx, url)
+	page, err := eng.fetcher.Fetch(ctx, url)
 
 	if err != nil {
 		return nil, fmt.Errorf("ant: fetch %q - %w", url, err)
