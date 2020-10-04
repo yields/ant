@@ -70,7 +70,7 @@
   The package includes functions that can scan data from the page into your structs
   or slice of structs, this allows you to reduce the noise and complexity in your source-code.
 
-  You can also use a [jQuery-like API]() that allows you to scrape complex HTML pages if needed.
+  You can also use a jQuery-like API that allows you to scrape complex HTML pages if needed.
 
   ```go
 
