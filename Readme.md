@@ -34,7 +34,7 @@
 
   The crawler automatically fetches and caches `robots.txt`, making sure that
   it never causes issues to small website owners. Of-course you can disable
-  this behavior [easily]().
+  this behavior.
 
   ```go
   eng, err := ant.NewEngine(ant.EngineConfig{
