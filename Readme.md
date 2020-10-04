@@ -30,7 +30,7 @@
 
 <br>
 
-##### Polite
+#### Polite
 
   The crawler automatically fetches and caches `robots.txt`, making sure that
   it never causes issues to small website owners. Of-course you can disable
@@ -45,7 +45,7 @@
 
 <br>
 
-##### Concurrent
+#### Concurrent
 
   The crawler maintains a configurable amount of "worker" goroutines that read
   URLs off the queue, and spawn a goroutine for each URL.
@@ -65,7 +65,7 @@
 
 <br>
 
-##### Declarative
+#### Declarative
 
   The package includes functions that can scan data from the page into your structs
   or slice of structs, this allows you to reduce the noise and complexity in your source-code.
@@ -82,7 +82,7 @@
 
 <br>
 
-##### Ratelimits
+#### Ratelimits
 
   The package includes a powerful `ant.Limiter` interface that allows you to
   define rate-limits per URL, of-course there are also some built-in limiters.
@@ -96,7 +96,7 @@
 
 <br>
 
-##### Matchers
+#### Matchers
 
   Another powerful interface is `ant.Matcher` which allows you to define URL
   matchers, the matchers are called before URLs are queued.
@@ -109,7 +109,7 @@
 
 <br>
 
-##### Robust
+#### Robust
 
   The crawl engine automatically retries any errors that implement `Temporary()`
   error that returns true.
@@ -134,7 +134,7 @@
 
 <br>
 
-##### Built-in Scrapers
+#### Built-in Scrapers
 
   The whole point of scraping is to extract data from websites into a machine readable
   format such as CSV or JSON, ant comes with built-in scrapers to make this ridiculously
@@ -169,7 +169,7 @@
 
 <br>
 
-##### Testing
+#### Testing
 
   `anttest` package makes it easy to test your scraper implementation
   it fetches a page by a URL, caches it in the OS's temporary directory and re-uses it.
