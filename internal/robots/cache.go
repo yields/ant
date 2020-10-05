@@ -85,6 +85,10 @@ func NewCache(c *http.Client, capacity int) *Cache {
 // is allowed to fetch the URL. Subsequent calls may use
 // the cached robots.txt structures.
 //
+// Note that robots.txt lookup is simplistic, it basically takes
+// the hostname and appends `/robots.txt` to it, this means that
+// the X-robots header and the robots.txt meta tag are not considered.
+//
 // The method returns an error if the context is canceled
 // or if a parsing error occurs.
 func (c *Cache) Allowed(ctx context.Context, req Request) (bool, error) {
