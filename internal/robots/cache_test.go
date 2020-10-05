@@ -83,6 +83,19 @@ func TestCache(t *testing.T) {
 		assert.Error(err)
 		assert.True(errors.Is(err, context.Canceled))
 	})
+
+	t.Run("when robots.txt 404s, all URLs are allowed", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var cache = NewCache(http.DefaultClient, 50)
+		var url = serve(t, "testdata/404.txt")
+
+		req := request(t, url+"/foo", "ant")
+
+		allowed, err := cache.Allowed(ctx, req)
+		assert.NoError(err)
+		assert.True(allowed)
+	})
 }
 
 func BenchmarkCache(b *testing.B) {
