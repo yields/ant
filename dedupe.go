@@ -32,6 +32,12 @@ type deduper struct {
 }
 
 // DedupeMap returns a new deduper backed by sync.Map.
+//
+// The de-duplicator is in-efficient and is meant to be
+// used for smaller crawls, it keeps the URLs in-memory.
+//
+// If you're concerned about memory use, either supply
+// your own de-duplicator implementation or use `DedupeBF()`.
 func DedupeMap() Deduper {
 	return &deduper{new(sync.Map)}
 }
@@ -55,6 +61,12 @@ type dedupebf struct {
 }
 
 // DedupeBF returns a new deduper backed by bloom filter.
+//
+// The de-duplicator uses an in-memory bloomfilter to check
+// if a URL has been visited, when `Dedupe()` is called with
+// a set of URLs, it will loop over them and check if they exist
+// in the set, if they are not, it will add them to the set and
+// return them.
 func DedupeBF(k, m uint) Deduper {
 	return &dedupebf{
 		filter: bloom.New(k, m),
