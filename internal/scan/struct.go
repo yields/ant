@@ -16,7 +16,7 @@ type field struct {
 }
 
 // StructScanner implements a struct scanner.
-type StructScanner struct {
+type structScanner struct {
 	fields []field
 }
 
@@ -75,11 +75,11 @@ func Struct(opts Options, t reflect.Type) (ScanFunc, error) {
 		return nil, fmt.Errorf("scan: struct %v has no css tags", t)
 	}
 
-	return (StructScanner{fields}).scan, nil
+	return (structScanner{fields}).scan, nil
 }
 
 // Scan implements a scan func.
-func (ss StructScanner) scan(dst reflect.Value, src *html.Node) error {
+func (ss structScanner) scan(dst reflect.Value, src *html.Node) error {
 	for _, f := range ss.fields {
 		v := dst.FieldByIndex(f.index)
 		if err := f.scan(v, src); err != nil {
