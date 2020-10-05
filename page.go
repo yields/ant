@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/yields/ant/internal/scan"
+	"github.com/yields/ant/internal/selectors"
 	"golang.org/x/net/html"
 )
 
@@ -44,8 +45,8 @@ func (p *Page) Query(selector string) List {
 		return ret
 	}
 
-	if m := selectors.compile(selector); m != nil {
-		ret = m.MatchAll(p.root)
+	if s, err := selectors.Compile(selector); err == nil {
+		ret = s.MatchAll(p.root)
 	}
 
 	return ret
