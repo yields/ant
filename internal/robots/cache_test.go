@@ -71,15 +71,30 @@ func TestCache(t *testing.T) {
 		var assert = require.New(t)
 		var cache = NewCache(http.DefaultClient, 50)
 		var url = serve(t, "testdata/robots.txt")
+		var req = request(t, url, "badbot")
+
+		_, err := cache.Allowed(ctx, req)
+		assert.NoError(err)
 
 		ctx, cancel := context.WithCancel(ctx)
 		cancel()
 
-		req := request(t, url, "badbot")
-
-		err := cache.Wait(ctx, req)
+		err = cache.Wait(ctx, req)
 		assert.Error(err)
 		assert.True(errors.Is(err, context.Canceled))
+	})
+
+	t.Run("when robots.txt 404s, all URLs are allowed", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var cache = NewCache(http.DefaultClient, 50)
+		var url = serve(t, "testdata/404.txt")
+
+		req := request(t, url+"/foo", "ant")
+
+		allowed, err := cache.Allowed(ctx, req)
+		assert.NoError(err)
+		assert.True(allowed)
 	})
 }
 
