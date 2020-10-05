@@ -71,13 +71,15 @@ func TestCache(t *testing.T) {
 		var assert = require.New(t)
 		var cache = NewCache(http.DefaultClient, 50)
 		var url = serve(t, "testdata/robots.txt")
+		var req = request(t, url, "badbot")
+
+		_, err := cache.Allowed(ctx, req)
+		assert.NoError(err)
 
 		ctx, cancel := context.WithCancel(ctx)
 		cancel()
 
-		req := request(t, url, "badbot")
-
-		err := cache.Wait(ctx, req)
+		err = cache.Wait(ctx, req)
 		assert.Error(err)
 		assert.True(errors.Is(err, context.Canceled))
 	})
