@@ -8,7 +8,7 @@ import (
 )
 
 // SliceScanner implements a slice scanner.
-type SliceScanner struct {
+type sliceScanner struct {
 	selector  cascadia.Selector
 	scanFunc  ScanFunc
 	sliceType reflect.Type
@@ -26,7 +26,7 @@ func Slice(opts Options, t reflect.Type) (ScanFunc, error) {
 		return nil, err
 	}
 
-	return (SliceScanner{
+	return (sliceScanner{
 		selector:  opts.Selector,
 		scanFunc:  f,
 		sliceType: t,
@@ -34,7 +34,7 @@ func Slice(opts Options, t reflect.Type) (ScanFunc, error) {
 }
 
 // Scan implements a slice scanner.
-func (ss SliceScanner) scan(dst reflect.Value, src *html.Node) error {
+func (ss sliceScanner) scan(dst reflect.Value, src *html.Node) error {
 	var nodes = ss.selector.MatchAll(src)
 
 	if len(nodes) == 0 {
