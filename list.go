@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/yields/ant/internal/scan"
+	"github.com/yields/ant/internal/selectors"
 	"golang.org/x/net/html"
 )
 
@@ -25,7 +26,7 @@ type List []*html.Node
 func (l List) Query(selector string) List {
 	var ret List
 
-	if sel := selectors.compile(selector); sel != nil {
+	if sel, err := selectors.Compile(selector); err == nil {
 		for _, n := range l {
 			ret = append(ret, sel.MatchAll(n)...)
 		}
@@ -36,7 +37,7 @@ func (l List) Query(selector string) List {
 
 // Is returns true if any of the nodes matches selector.
 func (l List) Is(selector string) (matched bool) {
-	if sel := selectors.compile(selector); sel != nil {
+	if sel, err := selectors.Compile(selector); err == nil {
 		for _, n := range l {
 			if sel.Match(n) {
 				matched = true
