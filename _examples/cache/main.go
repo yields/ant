@@ -29,6 +29,7 @@ func main() {
 	if err != nil {
 		log.Printf("open disk: %s", err)
 	}
+	defer disk.Close()
 
 	if err := disk.Wait(ctx); err != nil {
 		log.Printf("disk wait: %s", err)
