@@ -7,9 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"io"
+	"io/ioutil"
 	"net/http"
-	"sync"
 )
 
 // Freshness enumerates freshness.
@@ -95,23 +95,11 @@ func WithStorage(s Storage) Option {
 	}
 }
 
-// WithLogger sets the logger to log.
-func WithLogger(log *log.Logger) Option {
-	return func(c *Cache) error {
-		if log == nil {
-			return errors.New("antcache: log must be non-nil")
-		}
-		c.log = log
-		return nil
-	}
-}
-
 // Cache implements an HTTP cache.
 type Cache struct {
 	storage  Storage
 	strategy strategy
 	client   Client
-	log      *log.Logger
 }
 
 // New returns a new cache with the given options.
@@ -120,7 +108,6 @@ func New(c Client, opts ...Option) (*Cache, error) {
 		strategy: rfc7234{},
 		storage:  &memstore{},
 		client:   c,
-		log:      nil,
 	}
 
 	if c == nil {
@@ -147,11 +134,12 @@ func New(c Client, opts ...Option) (*Cache, error) {
 //
 // When a response is not found, the method calls the underlying client
 // and if the response can be stored, it will store it when its body
-// is closed, if the body is not closed, the response is never cached.
+// is closed, if the body is not closed, the response is never stored.
 //
-// When storage errors occure while loading/storing a response the method
-// logs the errors if a logger is set and no errors are returned, the method
-// will simply fallback to the underlying client on storage errors.
+// If there was an error loading a cached response the method returns
+// the error and discards the response's body, if an error occurs
+// when storing the response body, the response's Close() method
+// will return the error.
 func (c *Cache) Do(req *http.Request) (*http.Response, error) {
 	if !c.strategy.cache(req) {
 		return c.client.Do(req)
@@ -159,11 +147,16 @@ func (c *Cache) Do(req *http.Request) (*http.Response, error) {
 
 	var key = keyof(req)
 
-	if resp, ok := c.load(key, req); ok {
+	resp, err := c.load(key, req)
+	if err != nil {
+		return nil, err
+	}
+	if resp != nil {
+		resp.Header.Set("X-From-Cache", "1")
 		return resp, nil
 	}
 
-	resp, err := c.client.Do(req)
+	resp, err = c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -178,23 +171,23 @@ func (c *Cache) Do(req *http.Request) (*http.Response, error) {
 // Load loads a response from the cache storage for req.
 //
 // The method attempts to load a cached response for req, if a response
-// is found in the storage and is fresh the method returns the response
-// along with `ok=true`.
+// is found the response is checked to ensure it is not stale, if it's fresh
+// it is immediately returned, the method will verify stale requests as needed.
 //
-// If any storage related errors occur, the method simply logs the errors
-// and returns a nil response with ok=false, if an error logger is not
-// defined on the cache, no logs are produced.
+// When a response is refreshed from the origin server it will be overwritten
+// in the storage once the response's body is closed.
 //
-// If the response is stale, the method will send a validation request
-// and if the response is still fresh, the method returns it and updates
-// the cached response.
-func (c *Cache) load(key uint64, req *http.Request) (*http.Response, bool) {
+// The method returns nil response and nil error when the response does not
+// exist in the cache or when it must be refreshed.
+func (c *Cache) load(key uint64, req *http.Request) (*http.Response, error) {
 	var ctx = req.Context()
 
 	buf, err := c.storage.Load(ctx, key)
 	if err != nil {
-		c.error("antcache: storage load %d - %s", key, err)
-		return nil, false
+		return nil, fmt.Errorf("antcache: load %d - %w", key, err)
+	}
+	if buf == nil {
+		return nil, nil
 	}
 
 	b := bytes.NewBuffer(buf)
@@ -202,50 +195,80 @@ func (c *Cache) load(key uint64, req *http.Request) (*http.Response, bool) {
 
 	resp, err := http.ReadResponse(r, req)
 	if err != nil {
-		c.error("antcache: read cached response - %s", err)
-		return nil, false
+		return nil, fmt.Errorf("antcache: read response %d - %w", key, err)
 	}
 
 	switch c.strategy.fresh(resp) {
 	case fresh:
-		return resp, true
+		return resp, nil
 
 	case stale:
 		return c.verify(ctx, key, resp)
 	}
 
-	return nil, false
+	return nil, nil
 }
 
 // Verify verifies that the given response is still valid.
-func (c *Cache) verify(ctx context.Context, key uint64, resp *http.Response) (*http.Response, bool) {
+//
+// https://tools.ietf.org/html/rfc7234#section-4.3.
+func (c *Cache) verify(ctx context.Context, key uint64, resp *http.Response) (*http.Response, error) {
 	var req = resp.Request.Clone(ctx)
 	var hdr = resp.Header
 
 	if etag := hdr.Get("ETag"); etag != "" {
-		req.Header.Set("If-None-Match", etag)
+		if req.Header.Get("If-None-Match") == "" {
+			req.Header.Set("If-None-Match", etag)
+		}
 	}
 
 	if t := hdr.Get("Last-Modified"); t != "" {
-		req.Header.Set("If-Modified-Since", t)
+		if req.Header.Get("If-Modified-Since") == "" {
+			req.Header.Set("If-Modified-Since", t)
+		}
 	}
 
 	newresp, err := c.client.Do(req)
 	if err != nil {
-		c.error("antcache: validate %s - %s", req.URL, err)
-		return nil, false
+		return nil, fmt.Errorf("antcache: validate %d - %w", key, err)
 	}
 
+	// If a cache receives a 5xx (Server Error) response while
+	// attempting to validate a response, it can either forward this
+	// response to the requesting client, or act as if the server failed
+	// to respond.  In the latter case, the cache MAY send a previously
+	// stored response (see Section 4.2.4).
+	if newresp.StatusCode >= 500 && newresp.StatusCode < 600 {
+		reqd := directivesFrom(req.Header)
+		if reqd.has("stale-if-error") {
+			return resp, nil
+		}
+		return newresp, nil
+	}
+
+	// A 304 (Not Modified) response status code indicates that the
+	// stored response can be updated and reused; see Section 4.3.4.
 	if newresp.StatusCode == 304 {
-		return resp, true
+		c.discard(resp)
+		merge(resp.Header, newresp.Header)
+		c.store(key, resp)
+		return resp, nil
 	}
 
-	if c.strategy.store(resp) {
+	// A full response (i.e., one with a payload body) indicates that
+	// none of the stored responses nominated in the conditional request
+	// is suitable.  Instead, the cache MUST use the full response to
+	// satisfy the request and MAY replace the stored response(s).
+	if c.strategy.store(newresp) {
+		c.discard(resp)
 		c.store(key, newresp)
-		return resp, true
+		return newresp, nil
 	}
 
-	return nil, false
+	// Verification failed, cleanup and close the response readers.
+	c.discard(newresp)
+	c.discard(resp)
+	return nil, nil
 }
 
 // Store stores the given response.
@@ -253,8 +276,7 @@ func (c *Cache) verify(ctx context.Context, key uint64, resp *http.Response) (*h
 // The method overwrites the response's body with a readcloser
 // that will write the response to the storage when it is closed.
 //
-// If the response body is not closed, the response is never
-// stored in the cache.
+// If the response body is not closed, the response is never stored in the cache.
 func (c *Cache) store(key uint64, resp *http.Response) {
 	rc := resp.Body
 
@@ -262,19 +284,17 @@ func (c *Cache) store(key uint64, resp *http.Response) {
 		resp:  resp,
 		key:   key,
 		rc:    rc,
-		buf:   &bytes.Buffer{},
-		once:  &sync.Once{},
 		ctx:   resp.Request.Context(),
 		store: c.storage.Store,
-		log:   c.error,
 	}
 
 	return
 }
 
-// Error logs an error with msg and args.
-func (c *Cache) error(msg string, args ...interface{}) {
-	if c.log != nil {
-		c.log.Printf(msg, args...)
+// Discard discasrds the given reader.
+func (c *Cache) discard(resp *http.Response) {
+	if resp != nil {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
 	}
 }

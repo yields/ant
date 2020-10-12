@@ -2,6 +2,7 @@ package antcache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,8 +13,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/go-errors/errors"
 )
 
 // File represents an in-memory file.
@@ -29,23 +28,48 @@ type DiskOption func(*Diskstore) error
 
 // Maxage sets the maxage to age.
 //
-// When <= 0, the disk will not spawn a goroutine
-// that will cleanup older files.
+// When <= 0, the disk will not track file age
+// and will not remove files that have expired.
+//
+// Defaults to 24 hours.
 func Maxage(age time.Duration) DiskOption {
-	return func(d *Diskstore) error {
-		d.maxage = age
+	return func(ds *Diskstore) error {
+		ds.maxage = age
 		return nil
 	}
 }
 
 // Maxsize sets the maxsize to size.
 //
-// When <= 0, the disk will not spawn a goroutine
-// that will remove older files when the directory
-// reaches the given size.
+// When <= 0, the disk will not track the disk
+// the file sizes and remove files to ensure the
+// disk usage stays constant.
+//
+// Defaults to 1gb.
 func Maxsize(size int64) DiskOption {
-	return func(d *Diskstore) error {
-		d.maxsize = size
+	return func(ds *Diskstore) error {
+		ds.maxsize = size
+		return nil
+	}
+}
+
+// SweepEvery sweeps the files every d.
+//
+// By default the disk will sweep all files every 5 minutes,
+// when d <= 0, no background file sweeper is done and so the
+// disk size may keep growing.
+//
+// The disk will remove all files that have exceeded the maxage
+// when maxsize is set, the sweeper will remove files until
+// the maxsize is reached.
+func SweepEvery(d time.Duration) DiskOption {
+	return func(ds *Diskstore) error {
+		if d > 0 {
+			ds.ticker = time.NewTicker(d)
+		} else {
+			ds.ticker.Stop()
+			ds.ticker = nil
+		}
 		return nil
 	}
 }
@@ -71,8 +95,10 @@ type Diskstore struct {
 	stop    chan struct{}
 	warm    chan struct{}
 	wg      sync.WaitGroup
+	ticker  *time.Ticker
 	readymu sync.RWMutex
 	ready   map[uint64]file
+	now     func() time.Time
 }
 
 // Open opens a new disk storage.
@@ -90,6 +116,8 @@ func Open(path string, opts ...DiskOption) (*Diskstore, error) {
 		warm:    make(chan struct{}),
 		readymu: sync.RWMutex{},
 		ready:   make(map[uint64]file),
+		ticker:  time.NewTicker(5 * time.Minute),
+		now:     time.Now,
 	}
 
 	for _, opt := range opts {
@@ -102,9 +130,13 @@ func Open(path string, opts ...DiskOption) (*Diskstore, error) {
 		return nil, err
 	}
 
-	disk.wg.Add(2)
+	disk.wg.Add(1)
 	go disk.warmup()
-	go disk.sweeper()
+
+	if disk.ticker != nil {
+		disk.wg.Add(1)
+		go disk.sweeper()
+	}
 
 	return disk, nil
 }
@@ -117,7 +149,7 @@ func (d *Diskstore) init() error {
 
 	f, err := os.Open(d.path)
 	if err != nil {
-		return fmt.Errorf("antcache: disk open %q - %w", d.path, err)
+		return fmt.Errorf("antcache: disk %w", err)
 	}
 
 	stat, err := f.Stat()
@@ -128,7 +160,7 @@ func (d *Diskstore) init() error {
 
 	if !stat.IsDir() {
 		f.Close()
-		return fmt.Errorf("antcache: disk exepcted a directory")
+		return fmt.Errorf("antcache: disk expected a directory")
 	}
 
 	d.dir = f
@@ -220,10 +252,8 @@ func (d *Diskstore) warmup() {
 // If the size of all items exceeds the configured maxsize
 // the method will delete old files until the maxsize is reached.
 func (d *Diskstore) sweeper() {
-	var t = time.NewTicker(5 * time.Minute)
-
 	defer func() {
-		t.Stop()
+		d.ticker.Stop()
 		d.wg.Done()
 	}()
 
@@ -232,7 +262,7 @@ func (d *Diskstore) sweeper() {
 		case <-d.stop:
 			return
 
-		case <-t.C:
+		case <-d.ticker.C:
 			if _, err := d.sweep(); err != nil {
 				log.Printf("antcache: disk sweep - %s", err)
 			}
@@ -243,6 +273,7 @@ func (d *Diskstore) sweeper() {
 // Sweep sweeps the directory.
 func (d *Diskstore) sweep() (int, error) {
 	var files = d.files()
+	var now = d.now()
 	var removed int
 	var remove []file
 	var sum int64
@@ -255,12 +286,15 @@ func (d *Diskstore) sweep() (int, error) {
 
 	for _, f := range files {
 		if d.maxage > 0 {
-			remove = append(remove, f)
+			if now.Sub(f.mtime) > d.maxage {
+				remove = append(remove, f)
+			}
 		}
 
 		if d.maxsize > 0 {
 			if sum += f.size; sum > d.maxsize {
 				remove = append(remove, f)
+				sum -= f.size
 			}
 		}
 	}
@@ -268,7 +302,7 @@ func (d *Diskstore) sweep() (int, error) {
 	d.readymu.Lock()
 	defer d.readymu.Unlock()
 
-	for _, f := range files {
+	for _, f := range remove {
 		if _, ok := d.ready[f.key]; ok {
 			if err := os.Remove(f.path); err != nil {
 				log.Printf("antcache: disk remove - %s", err)

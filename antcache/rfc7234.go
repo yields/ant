@@ -5,18 +5,6 @@ import (
 	"time"
 )
 
-// RFC7234 uses an RFC7234 caching implementation.
-//
-// Note that requests with content-range, range and authorization
-// headers are never cached, some directives are also not
-// implemented and are skipped ("immutable", "stale-if-error").
-func RFC7234() Option {
-	return func(c *Cache) error {
-		c.strategy = rfc7234{}
-		return nil
-	}
-}
-
 // RFC7234 implements the standard cache strategy.
 //
 // https://tools.ietf.org/html/rfc7234
@@ -27,7 +15,11 @@ type rfc7234 struct{}
 // The method returns true if the request may use a cached
 // response, or if it allows caching.
 func (rfc7234) cache(req *http.Request) bool {
-	return (req.Method == "GET" || req.Method == "HEAD") && !nostore(req.Header)
+	return (req.Method == "GET" || req.Method == "HEAD") &&
+		!nostore(req.Header) &&
+		req.Header.Get("Range") == "" &&
+		req.Header.Get("Content-Range") == "" &&
+		req.Header.Get("Authorization") == ""
 }
 
 // Store implementation.
