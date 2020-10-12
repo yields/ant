@@ -8,6 +8,24 @@ import (
 	"github.com/spaolacci/murmur3"
 )
 
+// Merge merges b headers into a.
+func merge(a http.Header, b http.Header) {
+	for key := range b {
+		switch key {
+		case "Keep-Alive":
+		case "Proxy-Authenticate":
+		case "Proxy-Authorization":
+		case "Te":
+		case "Trailers":
+		case "Transfer-Encoding":
+		case "Upgrade":
+
+		default:
+			a[key] = b[key]
+		}
+	}
+}
+
 // Keyof returns a cache key of req.
 func keyof(req *http.Request) uint64 {
 	return murmur3.Sum64([]byte(

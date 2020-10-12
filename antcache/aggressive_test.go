@@ -9,6 +9,85 @@ import (
 )
 
 func TestAggressive(t *testing.T) {
+	t.Run("cache", func(t *testing.T) {
+		var cases = []struct {
+			title string
+			req   *http.Request
+			cache bool
+		}{
+			{
+				title: "GET",
+				req: &http.Request{
+					Method: "GET",
+				},
+				cache: true,
+			},
+			{
+				title: "HEAD",
+				req: &http.Request{
+					Method: "HEAD",
+				},
+				cache: true,
+			},
+			{
+				title: "POST",
+				req: &http.Request{
+					Method: "POST",
+				},
+				cache: false,
+			},
+			{
+				title: "GET no-store",
+				req: &http.Request{
+					Method: "GET",
+					Header: http.Header{
+						"Cache-Control": {"no-store"},
+					},
+				},
+				cache: false,
+			},
+			{
+				title: "GET authorization",
+				req: &http.Request{
+					Method: "GET",
+					Header: http.Header{
+						"Authorization": {"token"},
+					},
+				},
+				cache: false,
+			},
+			{
+				title: "GET range",
+				req: &http.Request{
+					Method: "GET",
+					Header: http.Header{
+						"Range": {"range"},
+					},
+				},
+				cache: false,
+			},
+			{
+				title: "GET content-range",
+				req: &http.Request{
+					Method: "GET",
+					Header: http.Header{
+						"Content-Range": {"range"},
+					},
+				},
+				cache: false,
+			},
+		}
+
+		for _, c := range cases {
+			t.Run(c.title, func(t *testing.T) {
+				var assert = require.New(t)
+				var strategy = aggressive{}
+
+				assert.Equal(c.cache, strategy.cache(c.req))
+			})
+		}
+	})
+
 	t.Run("store", func(t *testing.T) {
 		var now = time.Now().UTC()
 		var cases = []struct {

@@ -3,11 +3,14 @@ package antcache
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"sync"
+
+	"github.com/hashicorp/go-multierror"
 )
 
 // Cachereader is a special reader that caches
@@ -16,38 +19,48 @@ type cachereader struct {
 	resp  *http.Response
 	key   uint64
 	rc    io.ReadCloser
-	buf   *bytes.Buffer
-	once  *sync.Once
+	buf   bytes.Buffer
+	once  sync.Once
 	ctx   context.Context
 	store func(ctx context.Context, key uint64, v []byte) error
-	log   func(msg string, args ...interface{})
 }
 
 // Read implementation.
 func (cr *cachereader) Read(p []byte) (n int, err error) {
-	n, err = cr.rc.Read(p)
-	cr.buf.Write(p)
+	if n, err = cr.rc.Read(p); n > 0 {
+		cr.buf.Write(p[:n])
+	}
 	return n, err
 }
 
 // Close implementation.
 func (cr *cachereader) Close() error {
-	err := cr.rc.Close()
+	cerr := cr.rc.Close()
 
 	cr.once.Do(func() {
 		resp := *cr.resp
-		resp.Body = ioutil.NopCloser(cr.buf)
+
+		r := bytes.NewReader(cr.buf.Bytes())
+		resp.Body = ioutil.NopCloser(r)
 
 		buf, err := httputil.DumpResponse(&resp, true)
 		if err != nil {
-			cr.log("antcache: dump response - %s", err)
+			cerr = multierror.Append(cerr, fmt.Errorf(
+				`antcache: dump response %q - %w`,
+				resp.Request.URL,
+				err,
+			))
 			return
 		}
 
 		if err := cr.store(cr.ctx, cr.key, buf); err != nil {
-			cr.log("antcache: store response - %s", err)
+			cerr = multierror.Append(cerr, fmt.Errorf(
+				`antcache: store %d - %w`,
+				cr.key,
+				err,
+			))
 		}
 	})
 
-	return err
+	return cerr
 }
