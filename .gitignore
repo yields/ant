@@ -2,4 +2,4 @@
 /*.test
 /*.cover
 /*.trace
-/exp/antcdp/*.test
+/antcdp/*.test
