@@ -57,6 +57,7 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer c.close(ctx, t)
 
 	sock, err := rpcc.DialContext(ctx, t.WebSocketDebuggerURL)
 	if err != nil {
@@ -183,17 +184,23 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 func (c *Client) target(ctx context.Context) (*devtool.Target, error) {
 	var d = devtool.New(c.addr())
 
-	t, err := d.Get(ctx, devtool.Page)
-
+	t, err := d.Create(ctx)
 	if err != nil {
-		t, err = d.Create(ctx)
+		err = fmt.Errorf("antcdp: create target - %w", err)
 	}
 
-	if err != nil {
-		err = fmt.Errorf("antcdp: target - %w", err)
+	return t, nil
+}
+
+// Close closes a target.
+func (c *Client) close(ctx context.Context, t *devtool.Target) error {
+	var d = devtool.New(c.addr())
+
+	if err := d.Close(ctx, t); err != nil {
+		return fmt.Errorf("antcdp: close target - %w", err)
 	}
 
-	return t, err
+	return nil
 }
 
 // Addr returns the address.

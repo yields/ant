@@ -134,8 +134,9 @@ func boot(t testing.TB, debug bool) {
 	})
 }
 
-func setup(t testing.TB) *Client {
+func setup(t *testing.T) *Client {
 	t.Helper()
+	t.Parallel()
 
 	return &Client{}
 }
