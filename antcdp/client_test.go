@@ -75,6 +75,29 @@ func TestClient(t *testing.T) {
 		assert.Equal(int64(123), resp.ContentLength)
 		assert.Equal("123", resp.Header.Get("Content-Length"))
 	})
+
+	t.Run("sets and reads cookies", func(t *testing.T) {
+		var assert = require.New(t)
+		var srv = serve(t, "testdata/cookies.html")
+		var req = request(t, srv.URL)
+		var client = setup(t)
+
+		req.AddCookie(&http.Cookie{
+			Name:  "key",
+			Value: "value",
+		})
+
+		resp, err := client.Do(req)
+		assert.NoError(err)
+		assert.Equal(200, resp.StatusCode)
+		assert.Equal(2, len(resp.Cookies()))
+
+		assert.Equal("key", resp.Cookies()[0].Name)
+		assert.Equal("value", resp.Cookies()[0].Value)
+
+		assert.Equal("js_cookie", resp.Cookies()[1].Name)
+		assert.Equal("true", resp.Cookies()[1].Value)
+	})
 }
 
 var (
@@ -94,9 +117,8 @@ func boot(t testing.TB, debug bool) {
 	var backoff = 1 * time.Second
 	var ready bool
 
-	t.Logf("$ %s %v ", bin, args)
-
 	if debug {
+		t.Logf("$ %s %v ", bin, args)
 		cmd.Stderr = os.Stderr
 		cmd.Stdout = os.Stdout
 	}
