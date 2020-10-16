@@ -30,6 +30,39 @@
 
 <br>
 
+#### Declarative
+
+  The package includes functions that can scan data from the page into your structs
+  or slice of structs, this allows you to reduce the noise and complexity in your source-code.
+
+  You can also use a jQuery-like API that allows you to scrape complex HTML pages if needed.
+
+  ```go
+
+  var data struct { Title string `css:"title"` }
+  page, _ := ant.Fetch(ctx, "https://apple.com")
+  page.Scan(&data)
+  data.Title // => Apple
+  ```
+
+<br>
+
+#### Headless
+
+  By default the crawler uses `http.Client`, however if you're crawling SPAs
+  youc an use the `antcdp.Client` implementation which allows you to use chrome
+  headless browser to crawl pages.
+
+  ```go
+  eng, err := ant.Engine(ant.EngineConfig{
+    Fetcher: &ant.Fetcher{
+      Client: antcdp.Client{},
+    },
+  })
+  ```
+
+<br>
+
 #### Polite
 
   The crawler automatically fetches and caches `robots.txt`, making sure that
@@ -61,23 +94,6 @@
     Workers: 5,
   })
   eng.Run(ctx)
-  ```
-
-<br>
-
-#### Declarative
-
-  The package includes functions that can scan data from the page into your structs
-  or slice of structs, this allows you to reduce the noise and complexity in your source-code.
-
-  You can also use a jQuery-like API that allows you to scrape complex HTML pages if needed.
-
-  ```go
-
-  var data struct { Title string `css:"title"` }
-  page, _ := ant.Fetch(ctx, "https://apple.com")
-  page.Scan(&data)
-  data.Title // => Apple
   ```
 
 <br>
