@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/yields/ant"
-	"github.com/yields/ant/exp/antcdp"
+	"github.com/yields/ant/antcdp"
 )
 
 func main() {
