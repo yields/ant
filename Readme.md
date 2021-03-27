@@ -98,17 +98,19 @@
 
 <br>
 
-#### Ratelimits
+#### Rate limits
 
   The package includes a powerful `ant.Limiter` interface that allows you to
-  define rate-limits per URL, of-course there are also some built-in limiters.
+  define rate limits per URL. There are some built-in limiters as well.
 
   ```go
   ant.Limit(1) // 1 rps on all URLs.
   ant.LimitHostname(5, "amazon.com") // 5 rps on amazon.com hostname.
-  ant.LimitPattern(5, "amazon.com.*") // 5 rps on all amazon.co.
-  ant.LimitRegexp(5, "^apple.com\/iphone\/*") // 2 rps on URLs that match.
+  ant.LimitPattern(5, "amazon.com.*") // 5 rps on URLs starting with `amazon.co.`.
+  ant.LimitRegexp(5, "^apple.com\/iphone\/*") // 5 rps on URLs that match the regex.
   ```
+  
+  Note that `LimitPattern` and `LimitRegexp` only match on the host and path of the URL.
 
 <br>
 
