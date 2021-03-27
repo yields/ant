@@ -9,20 +9,20 @@ import (
 	"github.com/yields/ant"
 )
 
-type quote struct {
-	Text string   `css:".text"   json:"text"`
-	By   string   `css:".author" json:"by"`
-	Tags []string `css:".tag"    json:"tags"`
-}
-
-type page struct {
-	Quotes []quote `css:".quote" json:"quotes"`
-}
-
 func main() {
 	var url = "http://quotes.toscrape.com"
 	var ctx = context.Background()
 	var start = time.Now()
+
+	type quote struct {
+		Text string   `css:".text"   json:"text"`
+		By   string   `css:".author" json:"by"`
+		Tags []string `css:".tag"    json:"tags"`
+	}
+
+	type page struct {
+		Quotes []quote `css:".quote" json:"quotes"`
+	}
 
 	eng, err := ant.NewEngine(ant.EngineConfig{
 		Scraper: ant.JSON(os.Stdout, page{}, `li.next > a`),
