@@ -41,5 +41,8 @@ cover:
 	@go test --coverprofile test.cover ./...
 	@go tool cover --html=test.cover
 
+embed:
+	@embedmd -w Readme.md
+
 clean:
 	rm -fr *.test *.prof *.cover *.trace antcdp/*.test
