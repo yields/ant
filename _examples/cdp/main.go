@@ -9,6 +9,12 @@ import (
 	"github.com/yields/ant/antcdp"
 )
 
+//
+// You have to have headless-shell running:
+//
+//   $ docker run --rm -p 9222:9222 -t chromedp/headless-shell:stable
+//
+
 func main() {
 	var apple = "https://apple.com"
 	var ctx = context.Background()
