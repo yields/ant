@@ -158,33 +158,29 @@
   format such as CSV or JSON, ant comes with built-in scrapers to make this ridiculously
   easy, here's a full cralwer that extracts quotes into stdout.
 
-  ```Go
-  // Describe how a quote should be extracted.
-  type Quote struct {
-    Text string   `css:".text"`
-    By   string   `css:".author"`
-    Tags []string `css:".tag"`
-  }
 
-  // A page may have many quotes.
-  type Page struct {
-    Quotes []Quote `css:".quote"`
-  }
+[embedmd]:# (_examples/jsonquotes/main.go /func main/ $)
+```go
+func main() {
+	var url = "http://quotes.toscrape.com"
+	var ctx = context.Background()
+	var start = time.Now()
 
-  // Where we want to fetch quotes from.
-  const host = "quotes.toscrape.com"
+	eng, err := ant.NewEngine(ant.EngineConfig{
+		Scraper: ant.JSON(os.Stdout, page{}, `li.next > a`),
+		Matcher: ant.MatchHostname("quotes.toscrape.com"),
+	})
+	if err != nil {
+		log.Fatalf("new engine: %s", err)
+	}
 
-  // Initialize the engine with a built-in scraper
-  // that receives a type and extract data into an io.Writer.
-  eng, err := ant.NewEngine(ant.EngineConfig{
-    Scraper: ant.JSON(Page{}, os.Stdout),
-    Matcher: ant.MatchHostname(host),
-  })
+	if err := eng.Run(ctx, url); err != nil {
+		log.Fatal(err)
+	}
 
-  // Block until there are no more URLs to scrape.
-  eng.Run(ctx, "http:// "+ host)
-  ```
-
+	log.Printf("scraped in %s :)", time.Since(start))
+}
+```
 <br>
 
 #### Testing
