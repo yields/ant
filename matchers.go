@@ -58,6 +58,12 @@ func MatchRegexp(expr string) MatcherFunc {
 		panic(fmt.Sprintf("ant: regexp %q - %s", expr, err))
 	}
 	return func(url *url.URL) bool {
-		return re.MatchString(url.Host + url.Path)
+		var path = url.Path
+
+		if len(path) > 0 && path[0] != '/' {
+			path = "/" + path
+		}
+
+		return re.MatchString(url.Host + path)
 	}
 }
