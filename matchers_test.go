@@ -2,6 +2,7 @@ package ant
 
 import (
 	"net/url"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -64,10 +65,11 @@ func TestMatchers(t *testing.T) {
 			pattern string
 			match   bool
 		}{
-			{"http://example.com", `example\.com`, true},
-			{"https://example.com", `example\.com`, true},
-			{"https://example.com/foo/baz", `example\.com`, true},
-			{"https://example.com/foo?query", `^example\.com\/foo$`, true},
+			{"http://example.com", regexp.QuoteMeta(`example.com`), true},
+			{"https://example.com", regexp.QuoteMeta(`example.com`), true},
+			{"https://example.com/foo/baz", regexp.QuoteMeta(`example.com`), true},
+			{"https://example.com/foo?query", regexp.QuoteMeta(`example.com/foo`), true},
+			{"https://google.com/search/car", regexp.QuoteMeta(`google.com/search/car`), true},
 		}
 
 		for _, c := range cases {
