@@ -1,0 +1,15 @@
+version: 2
+updates:
+- package-ecosystem: gomod
+  directory: "/"
+  schedule:
+    interval: weekly
+    time: "03:00"
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: github.com/hashicorp/go-multierror
+    versions:
+    - 1.1.1
+  - dependency-name: github.com/stretchr/testify
+    versions:
+    - 1.7.0
