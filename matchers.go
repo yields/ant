@@ -43,7 +43,7 @@ func MatchHostname(host string) MatcherFunc {
 // and the query parameters.
 func MatchPattern(pattern string) MatcherFunc {
 	return func(url *url.URL) bool {
-		return match.Match(url.Host+url.Path, pattern)
+		return match.Match(url.Host+normalizePath(url.Path), pattern)
 	}
 }
 
@@ -58,12 +58,14 @@ func MatchRegexp(expr string) MatcherFunc {
 		panic(fmt.Sprintf("ant: regexp %q - %s", expr, err))
 	}
 	return func(url *url.URL) bool {
-		var path = url.Path
-
-		if len(path) > 0 && path[0] != '/' {
-			path = "/" + path
-		}
-
-		return re.MatchString(url.Host + path)
+		return re.MatchString(url.Host + normalizePath(url.Path))
 	}
+}
+
+// NormalizePath normalizes the given path.
+func normalizePath(p string) string {
+	if len(p) > 0 && p[0] != '/' {
+		return "/" + p
+	}
+	return p
 }
