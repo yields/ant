@@ -107,6 +107,7 @@ func TestFetcher(t *testing.T) {
 
 		_, err := fetcher.Fetch(ctx, url)
 		assert.Error(err)
+		assert.Contains(err.Error(), "max attempts of 5 reached")
 		assert.Contains(err.Error(), `503`)
 	})
 

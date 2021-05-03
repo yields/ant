@@ -121,7 +121,11 @@ func (f *Fetcher) Fetch(ctx context.Context, url *URL) (*Page, error) {
 
 	for {
 		if attempt++; attempt > maxAttempts {
-			return nil, err
+			return nil, fmt.Errorf(
+				"ant: max attempts of %d reached - %w",
+				maxAttempts,
+				err,
+			)
 		}
 
 		if resp, err = f.fetch(ctx, url); err == nil {
