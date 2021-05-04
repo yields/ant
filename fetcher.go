@@ -166,8 +166,9 @@ func (f *Fetcher) Fetch(ctx context.Context, url *URL) (*Page, error) {
 	}
 
 	return &Page{
-		URL:  resp.Request.URL,
-		body: resp.Body,
+		URL:    resp.Request.URL,
+		Header: resp.Header,
+		body:   resp.Body,
 	}, nil
 }
 

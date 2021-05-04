@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"sync"
 
@@ -14,11 +15,12 @@ import (
 
 // Page represents a page.
 type Page struct {
-	URL  *url.URL
-	body io.ReadCloser
-	root *html.Node
-	once sync.Once
-	err  error
+	URL    *url.URL
+	Header http.Header
+	body   io.ReadCloser
+	root   *html.Node
+	once   sync.Once
+	err    error
 }
 
 // Parse parses the page into a root node.
