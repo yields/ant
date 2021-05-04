@@ -97,6 +97,22 @@ type Fetcher struct {
 	//
 	// When <= 0, it defaults to 5.
 	MaxAttempts int
+
+	// MinBackoff to use when the fetcher retries.
+	//
+	// Must be less than MaxBackoff, otherwise
+	// the fetcher returns an error.
+	//
+	// Defaults to `50ms`.
+	MinBackoff time.Duration
+
+	// MaxBackoff to use when the fetcher retries.
+	//
+	// Must be greater than MinBackoff, otherwise the
+	// fetcher returns an error.
+	//
+	// Defaults to `1s`.
+	MaxBackoff time.Duration
 }
 
 // Fetch fetches a page by URL.
@@ -230,8 +246,8 @@ func (f *Fetcher) client() Client {
 //
 // TODO: configurable backoff duration, jitter...?
 func (f *Fetcher) backoff(ctx context.Context, attempt int) error {
-	var min = minBackoff
-	var max = maxBackoff
+	var min = f.minBackoff()
+	var max = f.maxBackoff()
 	var dur = time.Duration(attempt*attempt) * min
 
 	if min >= max {
@@ -251,6 +267,22 @@ func (f *Fetcher) backoff(ctx context.Context, attempt int) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// MinBackoff returns the min backoff.
+func (f *Fetcher) minBackoff() time.Duration {
+	if f.MinBackoff > 0 {
+		return f.MinBackoff
+	}
+	return minBackoff
+}
+
+// MaxBackoff returns the min backoff.
+func (f *Fetcher) maxBackoff() time.Duration {
+	if f.MaxBackoff > 0 {
+		return f.MaxBackoff
+	}
+	return maxBackoff
 }
 
 // IsTemporary returns true if the error is temporary.
