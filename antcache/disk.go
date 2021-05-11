@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/golang/snappy"
 )
 
 // File represents an in-memory file.
@@ -74,6 +76,22 @@ func SweepEvery(d time.Duration) DiskOption {
 	}
 }
 
+// Compress makes the diskstore compress and uncompress all
+// cached items.
+//
+// Note that the diskstore will not check the cached item
+// before attempting to de-compress therefore the items
+// are not interchangeable between to disks where one
+// has no compression and the other one has compression.
+//
+// By default compression is turned off.
+func Compress() DiskOption {
+	return func(ds *Diskstore) error {
+		ds.compress = true
+		return nil
+	}
+}
+
 // DebugFunc represents a debug func.
 //
 // By default the diskstore outputs no debug logs.
@@ -113,18 +131,19 @@ func Debug(f DebugFunc) DiskOption {
 // When the disk is configured with invalid directory name
 // all its method return the same error.
 type Diskstore struct {
-	path    string
-	dir     *os.File
-	maxage  time.Duration
-	maxsize int64
-	stop    chan struct{}
-	warm    chan struct{}
-	wg      sync.WaitGroup
-	ticker  *time.Ticker
-	readymu sync.RWMutex
-	ready   map[uint64]file
-	now     func() time.Time
-	debug   DebugFunc
+	path     string
+	dir      *os.File
+	maxage   time.Duration
+	maxsize  int64
+	stop     chan struct{}
+	warm     chan struct{}
+	wg       sync.WaitGroup
+	ticker   *time.Ticker
+	readymu  sync.RWMutex
+	ready    map[uint64]file
+	now      func() time.Time
+	debug    DebugFunc
+	compress bool
 }
 
 // Open opens a new disk storage.
@@ -134,17 +153,18 @@ type Diskstore struct {
 // implement any filesystem level locking.
 func Open(path string, opts ...DiskOption) (*Diskstore, error) {
 	disk := &Diskstore{
-		path:    path,
-		maxage:  24 * time.Hour,
-		maxsize: 1 << 30,
-		stop:    make(chan struct{}),
-		wg:      sync.WaitGroup{},
-		warm:    make(chan struct{}),
-		readymu: sync.RWMutex{},
-		ready:   make(map[uint64]file),
-		ticker:  time.NewTicker(5 * time.Minute),
-		now:     time.Now,
-		debug:   nil,
+		path:     path,
+		maxage:   24 * time.Hour,
+		maxsize:  1 << 30,
+		stop:     make(chan struct{}),
+		wg:       sync.WaitGroup{},
+		warm:     make(chan struct{}),
+		readymu:  sync.RWMutex{},
+		ready:    make(map[uint64]file),
+		ticker:   time.NewTicker(5 * time.Minute),
+		now:      time.Now,
+		debug:    nil,
+		compress: false,
 	}
 
 	for _, opt := range opts {
@@ -380,6 +400,10 @@ func (d *Diskstore) Store(ctx context.Context, key uint64, v []byte) error {
 		os.Remove(f.Name())
 	}
 
+	if d.compress {
+		v = snappy.Encode(nil, v)
+	}
+
 	if _, err := f.Write(v); err != nil {
 		cleanup()
 		return fmt.Errorf("antcache: disk write - %w", err)
@@ -406,9 +430,19 @@ func (d *Diskstore) Load(_ context.Context, key uint64) (v []byte, err error) {
 
 	if f, ok := d.ready[key]; ok {
 		if v, err = ioutil.ReadFile(f.path); err != nil {
-			err = fmt.Errorf("antcache: disk read %q - %w", f.path, err)
-		} else {
-			d.debugf("load %d", key)
+			return nil, fmt.Errorf("antcache: disk read %q - %w", f.path, err)
+		}
+		d.debugf("load %d %s", key)
+	}
+
+	if v != nil && d.compress {
+		if v, err = snappy.Decode(nil, v); err != nil {
+			err = fmt.Errorf(
+				"antcache: compress is on but snappy can't decode %s/%d - %w",
+				d.path,
+				key,
+				err,
+			)
 		}
 	}
 
@@ -423,6 +457,10 @@ func (d *Diskstore) add(key uint64, f *os.File) error {
 	stat, err := f.Stat()
 	if err != nil {
 		return fmt.Errorf("antcache: disk stat - %w", err)
+	}
+
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("antcache: close %s - %w", f.Name(), err)
 	}
 
 	if err := os.Rename(f.Name(), newpath); err != nil {

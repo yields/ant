@@ -77,7 +77,7 @@ func TestDiskstore(t *testing.T) {
 		cancel()
 
 		err = d.Wait(ctx)
-		assert.Equal(err, context.Canceled)
+		assert.Equal(context.Canceled, err)
 
 		err = d.Close()
 		assert.NoError(err)
@@ -96,8 +96,44 @@ func TestDiskstore(t *testing.T) {
 		v, err := d.Load(ctx, 0)
 		assert.NoError(err)
 		assert.Equal([]byte("yo"), v)
+	})
 
+	t.Run("store and load compressed", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+
+		d, err := Open(tempdir(t), Compress())
 		assert.NoError(err)
+
+		err = d.Store(ctx, 0, []byte("yo"))
+		assert.NoError(err)
+
+		v, err := d.Load(ctx, 0)
+		assert.NoError(err)
+		assert.Equal([]byte("yo"), v)
+	})
+
+	t.Run("store un-compressed, load compressed", func(t *testing.T) {
+		var ctx = context.Background()
+		var assert = require.New(t)
+		var root = tempdir(t)
+
+		d, err := Open(root)
+		assert.NoError(err)
+
+		err = d.Store(ctx, 0, []byte("yo"))
+		assert.NoError(err)
+		assert.NoError(d.Close())
+
+		d, err = Open(root, Compress())
+		assert.NoError(err)
+		assert.NoError(d.Wait(ctx))
+
+		v, err := d.Load(ctx, 0)
+		assert.Error(err)
+		assert.Contains(err.Error(), "antcache: compress is on but snappy can't decode")
+		assert.True(nil == v)
+		assert.NoError(d.Close())
 	})
 
 	t.Run("when maxage is set, expired files are removed", func(t *testing.T) {
