@@ -74,6 +74,31 @@ func SweepEvery(d time.Duration) DiskOption {
 	}
 }
 
+// DebugFunc represents a debug func.
+//
+// By default the diskstore outputs no debug logs.
+type DebugFunc func(format string, args ...interface{})
+
+// Debug sets the debug logging func.
+//
+// When set on the diskstore debug will be enabled
+// and debug logs are written to it.
+//
+// By default the func is set to nil which disables
+// debug logging.
+//
+// Example:
+//
+//   Open("root", Debug(log.Printf))
+//
+// Debug logs are automatically prefixed with `"antcache/disk: "`.
+func Debug(f DebugFunc) DiskOption {
+	return func(ds *Diskstore) error {
+		ds.debug = f
+		return nil
+	}
+}
+
 // Diskstore implements disk cache storage.
 //
 // The storage is expected to be configured with
@@ -99,6 +124,7 @@ type Diskstore struct {
 	readymu sync.RWMutex
 	ready   map[uint64]file
 	now     func() time.Time
+	debug   DebugFunc
 }
 
 // Open opens a new disk storage.
@@ -118,6 +144,7 @@ func Open(path string, opts ...DiskOption) (*Diskstore, error) {
 		ready:   make(map[uint64]file),
 		ticker:  time.NewTicker(5 * time.Minute),
 		now:     time.Now,
+		debug:   nil,
 	}
 
 	for _, opt := range opts {
@@ -139,6 +166,13 @@ func Open(path string, opts ...DiskOption) (*Diskstore, error) {
 	}
 
 	return disk, nil
+}
+
+// Debugf writes debug logs if `ds.debug` is non nil.
+func (d *Diskstore) debugf(format string, args ...interface{}) {
+	if d.debug != nil {
+		d.debug("antcache/disk: "+format, args...)
+	}
 }
 
 // Init initializes the disk store.
@@ -163,6 +197,7 @@ func (d *Diskstore) init() error {
 		return fmt.Errorf("antcache: disk expected a directory")
 	}
 
+	d.debugf("opened root %s", d.path)
 	d.dir = f
 	return nil
 }
@@ -240,6 +275,8 @@ func (d *Diskstore) warmup() {
 		}
 	}
 	d.readymu.Unlock()
+
+	d.debugf("found %d cached pages", len(files))
 }
 
 // Sweeper sweeps the directory.
@@ -313,6 +350,10 @@ func (d *Diskstore) sweep() (int, error) {
 		}
 	}
 
+	if removed > 0 {
+		d.debugf("removed %d expired pages", removed)
+	}
+
 	return removed, nil
 }
 
@@ -354,6 +395,7 @@ func (d *Diskstore) Store(ctx context.Context, key uint64, v []byte) error {
 		return fmt.Errorf("antcache: add - %w", err)
 	}
 
+	d.debugf("store %d", key)
 	return nil
 }
 
@@ -365,6 +407,8 @@ func (d *Diskstore) Load(_ context.Context, key uint64) (v []byte, err error) {
 	if f, ok := d.ready[key]; ok {
 		if v, err = ioutil.ReadFile(f.path); err != nil {
 			err = fmt.Errorf("antcache: disk read %q - %w", f.path, err)
+		} else {
+			d.debugf("load %d", key)
 		}
 	}
 
@@ -410,5 +454,6 @@ func (d *Diskstore) Close() error {
 		return fmt.Errorf("antcache: disk close dir - %w", err)
 	}
 
+	d.debugf("closed %s", d.path)
 	return nil
 }
