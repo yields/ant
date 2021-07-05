@@ -5,7 +5,7 @@ go 1.14
 require (
 	github.com/andybalholm/cascadia v1.2.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/golang/snappy v0.0.3
+	github.com/golang/snappy v0.0.4
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/mafredri/cdp v0.31.0
