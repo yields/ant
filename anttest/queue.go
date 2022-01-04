@@ -66,7 +66,7 @@ func TestQueue(t *testing.T, new func(testing.TB) ant.Queue) {
 		var urls = parseURLs(t, "https://a", "https://b")
 		var queue = new(t)
 
-		err := queue.Close()
+		err := queue.Close(ctx)
 		assert.NoError(err)
 
 		err = queue.Enqueue(ctx, urls)
@@ -110,7 +110,7 @@ func TestQueue(t *testing.T, new func(testing.TB) ant.Queue) {
 		var assert = require.New(t)
 		var queue = new(t)
 
-		err := queue.Close()
+		err := queue.Close(ctx)
 		assert.NoError(err)
 
 		_, err = queue.Dequeue(ctx)
@@ -147,7 +147,7 @@ func BenchmarkQueue(b *testing.B, new func(testing.TB) ant.Queue) {
 		}
 	})
 
-	queue.Close()
+	queue.Close(ctx)
 }
 
 func parseURLs(t testing.TB, rawurls ...string) []*url.URL {
