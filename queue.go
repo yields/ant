@@ -33,7 +33,7 @@ type Queue interface {
 	//
 	// When a URL has been handled by the engine the method
 	// is called with the URL.
-	Done(url *URL)
+	Done(ctx context.Context, url *URL) error
 
 	// Wait blocks until the queue is closed.
 	//
@@ -45,7 +45,7 @@ type Queue interface {
 	//
 	// The method blocks until the queue is closed
 	// any queued URLs are discarded.
-	Close() error
+	Close(context.Context) error
 }
 
 // MemoryQueue implements a naive in-memory queue.
@@ -112,8 +112,9 @@ func (mq *memoryQueue) Dequeue(ctx context.Context) (*URL, error) {
 }
 
 // Done implementation.
-func (mq *memoryQueue) Done(*URL) {
+func (mq *memoryQueue) Done(_ context.Context, _ *URL) error {
 	mq.wg.Done()
+	return nil
 }
 
 // Wait implementation.
@@ -122,7 +123,7 @@ func (mq *memoryQueue) Wait() {
 }
 
 // Close implementation.
-func (mq *memoryQueue) Close() error {
+func (mq *memoryQueue) Close(_ context.Context) error {
 	mq.cond.L.Lock()
 	defer mq.cond.L.Unlock()
 

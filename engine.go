@@ -137,22 +137,22 @@ func NewEngine(c EngineConfig) (*Engine, error) {
 func (eng *Engine) Run(ctx context.Context, urls ...string) error {
 	var eg, subctx = errgroup.WithContext(ctx)
 
-	// Spawn workers.
-	for i := 0; i < eng.workers; i++ {
-		eg.Go(func() error {
-			defer eng.queue.Close()
-			return eng.run(subctx)
-		})
-	}
-
 	// Enqueue initial URLs.
 	if err := eng.Enqueue(ctx, urls...); err != nil {
 		return fmt.Errorf("ant: enqueue - %w", err)
 	}
 
+	// Spawn workers.
+	for i := 0; i < eng.workers; i++ {
+		eg.Go(func() error {
+			defer eng.queue.Close(ctx)
+			return eng.run(subctx)
+		})
+	}
+
 	// Wait until all URLs are handled.
 	eng.queue.Wait()
-	if err := eng.queue.Close(); err != nil {
+	if err := eng.queue.Close(ctx); err != nil {
 		return err
 	}
 
@@ -223,6 +223,9 @@ func (eng *Engine) run(ctx context.Context) error {
 			errors.Is(err, context.Canceled) {
 			return eg.Wait()
 		}
+		if err != nil {
+			return err
+		}
 
 		if eng.sema != nil {
 			if err := eng.sema.Acquire(ctx, 1); err != nil {
@@ -241,7 +244,7 @@ func (eng *Engine) run(ctx context.Context) error {
 
 // Process processes a single url.
 func (eng *Engine) process(ctx context.Context, url *URL) error {
-	defer eng.queue.Done(url)
+	defer eng.queue.Done(ctx, url)
 
 	// Check robots.txt.
 	if !eng.impolite {
