@@ -13,7 +13,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.6.1
 	github.com/temoto/robotstxt v1.1.2
-	github.com/tidwall/match v1.0.3
+	github.com/tidwall/match v1.1.1
 	github.com/willf/bitset v1.1.11 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	golang.org/x/net v0.0.0-20210916014120-12bc252f5db8
