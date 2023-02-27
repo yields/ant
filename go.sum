@@ -24,8 +24,8 @@ github.com/mafredri/cdp v0.31.0/go.mod h1:YTCwLXkZSa18SGSIxCPMOGZcUJODZSNlAhiMqb
 github.com/mafredri/go-lint v0.0.0-20180911205320-920981dfc79e/go.mod h1:k/zdyxI3q6dup24o8xpYjJKTCf2F7rfxLp6w/efTiWs=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/segmentio/agecache v0.0.0-20200415044159-6857a7326986 h1:tOJ5930Yvoqv3VClRpkOW2eIee9E2sWoCgMFO4AJMhA=
-github.com/segmentio/agecache v0.0.0-20200415044159-6857a7326986/go.mod h1:xQaiRgSzRlOz20xxPbDYFDY07groeIVJ7kc6myQX8+c=
+github.com/segmentio/agecache v0.0.2 h1:/sGVPieRQKswjeQRxdrZ0wg5DI5LdXRo+9aFnFqzjrw=
+github.com/segmentio/agecache v0.0.2/go.mod h1:xQaiRgSzRlOz20xxPbDYFDY07groeIVJ7kc6myQX8+c=
 github.com/spaolacci/murmur3 v1.1.0 h1:7c1g84S4BPRrfL5Xrdp6fOJ206sU9y293DDHaoy0bLI=
 github.com/spaolacci/murmur3 v1.1.0/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
