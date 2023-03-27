@@ -4,11 +4,10 @@ go 1.14
 
 require (
 	github.com/andybalholm/cascadia v1.3.1
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/snappy v0.0.4
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/kr/pretty v0.2.0 // indirect
-	github.com/mafredri/cdp v0.31.0
+	github.com/mafredri/cdp v0.34.0
 	github.com/segmentio/agecache v0.0.0-20200415044159-6857a7326986
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.6.1
