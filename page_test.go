@@ -2,7 +2,6 @@ package ant
 
 import (
 	"io"
-	"io/ioutil"
 	"net/url"
 	"strings"
 	"testing"
@@ -98,7 +97,7 @@ func makePage(t testing.TB, buf string) *Page {
 	r := strings.NewReader(buf)
 	return &Page{
 		URL:  u,
-		body: ioutil.NopCloser(r),
+		body: io.NopCloser(r),
 	}
 }
 

@@ -2,7 +2,6 @@ package antcache
 
 import (
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -261,7 +260,7 @@ func request(t testing.TB, url string) *http.Request {
 
 func read(t testing.TB, resp *http.Response) {
 	t.Helper()
-	io.Copy(ioutil.Discard, resp.Body)
+	io.Copy(io.Discard, resp.Body)
 	if err := resp.Body.Close(); err != nil {
 		t.Fatalf("read: %s", err)
 	}

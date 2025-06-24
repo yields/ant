@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -204,7 +203,7 @@ func (f *Fetcher) fetch(ctx context.Context, url *URL) (*http.Response, error) {
 // Discard discards the given response.
 func (f *Fetcher) discard(r *http.Response) {
 	if r != nil {
-		io.Copy(ioutil.Discard, r.Body)
+		io.Copy(io.Discard, r.Body)
 		r.Body.Close()
 	}
 }

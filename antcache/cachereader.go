@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"sync"
@@ -41,7 +40,7 @@ func (cr *cachereader) Close() error {
 		resp := *cr.resp
 
 		r := bytes.NewReader(cr.buf.Bytes())
-		resp.Body = ioutil.NopCloser(r)
+		resp.Body = io.NopCloser(r)
 
 		buf, err := httputil.DumpResponse(&resp, true)
 		if err != nil {

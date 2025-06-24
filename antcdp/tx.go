@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -181,7 +180,7 @@ func (tx *tx) readbody(ctx context.Context) error {
 		content = reply.OuterHTML
 		size    = len(content)
 		length  = strconv.Itoa(size)
-		body    = ioutil.NopCloser(strings.NewReader(content))
+		body    = io.NopCloser(strings.NewReader(content))
 	)
 
 	tx.resp.Body = body

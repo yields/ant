@@ -2,7 +2,6 @@ package antcache
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -203,22 +202,13 @@ func TestDiskstore(t *testing.T) {
 func tempdir(t testing.TB) string {
 	t.Helper()
 
-	name, err := ioutil.TempDir("", "antcache_disktest.*")
-	if err != nil {
-		t.Fatalf("tempdir: %s", err)
-	}
-
-	t.Cleanup(func() {
-		os.RemoveAll(name)
-	})
-
-	return name
+	return t.TempDir()
 }
 
 func tempfile(t testing.TB) string {
 	t.Helper()
 
-	f, err := ioutil.TempFile("", "antcache_disktest.*")
+	f, err := os.CreateTemp("", "antcache_disktest.*")
 	if err != nil {
 		t.Fatalf("tmpfile: %s", err)
 	}

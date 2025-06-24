@@ -1,7 +1,7 @@
 package antcdp
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -33,7 +33,7 @@ func TestClient(t *testing.T) {
 
 		assert.NoError(err)
 
-		buf, err := ioutil.ReadAll(resp.Body)
+		buf, err := io.ReadAll(resp.Body)
 		assert.NoError(err)
 		assert.Equal(200, resp.StatusCode)
 		assert.Contains(string(buf), `<title>simple</title>`)

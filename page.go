@@ -3,7 +3,6 @@ package ant
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sync"
@@ -109,6 +108,6 @@ func (p *Page) resolve(selector string) URLs {
 
 // Close closes the page's body.
 func (p *Page) close() error {
-	io.Copy(ioutil.Discard, p.body)
+	io.Copy(io.Discard, p.body)
 	return p.body.Close()
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -390,7 +389,7 @@ func (d *Diskstore) files() []file {
 
 // Store implementation.
 func (d *Diskstore) Store(ctx context.Context, key uint64, v []byte) error {
-	f, err := ioutil.TempFile(d.path, "*.tmp")
+	f, err := os.CreateTemp(d.path, "*.tmp")
 	if err != nil {
 		return fmt.Errorf("antcache: open tempfile - %w", err)
 	}
@@ -429,7 +428,7 @@ func (d *Diskstore) Load(_ context.Context, key uint64) (v []byte, err error) {
 	defer d.readymu.RUnlock()
 
 	if f, ok := d.ready[key]; ok {
-		if v, err = ioutil.ReadFile(f.path); err != nil {
+		if v, err = os.ReadFile(f.path); err != nil {
 			return nil, fmt.Errorf("antcache: disk read %q - %w", f.path, err)
 		}
 		d.debugf("load %d %s", key)

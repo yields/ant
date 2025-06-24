@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 )
 
@@ -294,7 +293,7 @@ func (c *Cache) store(key uint64, resp *http.Response) {
 // Discard discasrds the given reader.
 func (c *Cache) discard(resp *http.Response) {
 	if resp != nil {
-		io.Copy(ioutil.Discard, resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 	}
 }
