@@ -74,7 +74,7 @@ func (p *Page) Next(selector string) (URLs, error) {
 }
 
 // Scan scans data into the given value dst.
-func (p *Page) Scan(dst interface{}) error {
+func (p *Page) Scan(dst any) error {
 	if err := p.parse(); err != nil {
 		return err
 	}

@@ -25,7 +25,7 @@ import (
 //
 // If no selectors are provided, the scraper will return all valid
 // URLs on the page.
-func JSON(w io.Writer, t interface{}, selectors ...string) Scraper {
+func JSON(w io.Writer, t any, selectors ...string) Scraper {
 	var typ = reflect.TypeOf(t)
 	var enc = json.NewEncoder(w)
 
@@ -76,7 +76,7 @@ func (j *jsonscraper) Scrape(ctx context.Context, p *Page) (URLs, error) {
 }
 
 // Encode encodes the given v.
-func (j *jsonscraper) encode(v interface{}) error {
+func (j *jsonscraper) encode(v any) error {
 	j.lock.Lock()
 	defer j.lock.Unlock()
 	return j.enc.Encode(v)

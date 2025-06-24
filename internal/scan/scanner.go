@@ -30,7 +30,7 @@ import (
 // The scanner uses tags to lookup data in the root html node
 // and extract its data, for example:
 //
-//   AuthorURLs []string `css:"a.author@href"`
+//	AuthorURLs []string `css:"a.author@href"`
 //
 // Will export all hrefs from anchor tags that have the class `.author`.
 type Scanner struct {
@@ -47,7 +47,7 @@ func NewScanner() *Scanner {
 }
 
 // Scan scans from src node into dst value.
-func (s *Scanner) Scan(dst interface{}, src *html.Node, opts Options) error {
+func (s *Scanner) Scan(dst any, src *html.Node, opts Options) error {
 	var v = reflect.ValueOf(dst)
 	var t = v.Type()
 

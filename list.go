@@ -91,7 +91,7 @@ func (l List) Attr(key string) (string, bool) {
 // Scan scans all items into struct `dst`.
 //
 // The method scans data from the 1st node.
-func (l List) Scan(dst interface{}) error {
+func (l List) Scan(dst any) error {
 	for _, n := range l {
 		return scanner.Scan(dst, n, scan.Options{})
 	}

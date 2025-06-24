@@ -95,7 +95,7 @@ func Compress() DiskOption {
 // DebugFunc represents a debug func.
 //
 // By default the diskstore outputs no debug logs.
-type DebugFunc func(format string, args ...interface{})
+type DebugFunc func(format string, args ...any)
 
 // Debug sets the debug logging func.
 //
@@ -107,7 +107,7 @@ type DebugFunc func(format string, args ...interface{})
 //
 // Example:
 //
-//   Open("root", Debug(log.Printf))
+//	Open("root", Debug(log.Printf))
 //
 // Debug logs are automatically prefixed with `"antcache/disk: "`.
 func Debug(f DebugFunc) DiskOption {
@@ -189,7 +189,7 @@ func Open(path string, opts ...DiskOption) (*Diskstore, error) {
 }
 
 // Debugf writes debug logs if `ds.debug` is non nil.
-func (d *Diskstore) debugf(format string, args ...interface{}) {
+func (d *Diskstore) debugf(format string, args ...any) {
 	if d.debug != nil {
 		d.debug("antcache/disk: "+format, args...)
 	}
