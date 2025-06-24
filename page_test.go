@@ -10,6 +10,18 @@ import (
 )
 
 func TestPage(t *testing.T) {
+	t.Run("body", func(t *testing.T) {
+		var page = makePage(t, `<title>foo</title>`)
+		var assert = require.New(t)
+
+		body := page.Body()
+		content, err := io.ReadAll(body)
+		assert.NoError(err)
+		assert.NoError(body.Close())
+
+		assert.Equal("<title>foo</title>", string(content))
+	})
+
 	t.Run("urls", func(t *testing.T) {
 		var page = makePage(t, `
 			<a href="/foo">foo</a>

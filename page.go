@@ -22,6 +22,13 @@ type Page struct {
 	err    error
 }
 
+// Body returns the raw body of the page.
+//
+// Note: if the body is read, the page's methods will not be available.
+func (p *Page) Body() io.ReadCloser {
+	return p.body
+}
+
 // Parse parses the page into a root node.
 //
 // If the root node is already parsed, or has
