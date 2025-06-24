@@ -1,6 +1,7 @@
 package ant
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,8 +26,32 @@ type Page struct {
 // Body returns the raw body of the page.
 //
 // Note: if the body is read, the page's methods will not be available.
-func (p *Page) Body() io.ReadCloser {
+func (p *Page) Body() io.Reader {
 	return p.body
+}
+
+// Document returns the parsed document.
+//
+// The method returns an error if the document could not be parsed.
+func (p *Page) Document() (*html.Node, error) {
+	if err := p.parse(); err != nil {
+		return nil, err
+	}
+	return p.root, nil
+}
+
+// HTML returns the parsed HTML document.
+//
+// The method returns an error if the document could not be parsed.
+func (p *Page) HTML() (string, error) {
+	if err := p.parse(); err != nil {
+		return "", err
+	}
+	dst := bytes.NewBuffer(nil)
+	if err := html.Render(dst, p.root); err != nil {
+		return "", err
+	}
+	return dst.String(), nil
 }
 
 // Parse parses the page into a root node.

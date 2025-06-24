@@ -17,9 +17,18 @@ func TestPage(t *testing.T) {
 		body := page.Body()
 		content, err := io.ReadAll(body)
 		assert.NoError(err)
-		assert.NoError(body.Close())
 
 		assert.Equal("<title>foo</title>", string(content))
+	})
+
+	t.Run("html", func(t *testing.T) {
+		var page = makePage(t, `<title>foo</title>`)
+		var assert = require.New(t)
+
+		body, err := page.HTML()
+		assert.NoError(err)
+
+		assert.Equal("<html><head><title>foo</title></head><body></body></html>", string(body))
 	})
 
 	t.Run("urls", func(t *testing.T) {
